@@ -9,6 +9,7 @@ import type { Profile, FriendshipStatus } from "@/types/database.types";
 interface Props {
   profile: Profile;
   currentUserId: string;
+  isOwnProfile: boolean;
   friendshipStatus: FriendshipStatus | null;
   friendshipId?: string;
   iAmRequester?: boolean;
@@ -17,6 +18,7 @@ interface Props {
 export function ProfilePageClient({
   profile: initialProfile,
   currentUserId,
+  isOwnProfile,
   friendshipStatus: initialStatus,
   friendshipId: initialFriendshipId,
   iAmRequester: initialIsRequester = false,
@@ -65,7 +67,7 @@ export function ProfilePageClient({
     <div className="space-y-4 pb-20 lg:pb-4">
       <ProfileHeader
         profile={profile}
-        currentUserId={currentUserId}
+        isOwnProfile={isOwnProfile}
         friendshipStatus={friendshipStatus}
         friendshipId={friendshipId}
         iAmRequester={iAmRequester}

@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 
 interface ProfileHeaderProps {
   profile: Profile;
-  currentUserId?: string;
+  isOwnProfile?: boolean;
   friendshipStatus?: FriendshipStatus | null;
   friendshipId?: string;
   iAmRequester?: boolean;
@@ -37,7 +37,7 @@ type RelationState =
 
 export function ProfileHeader({
   profile,
-  currentUserId: currentUserIdProp,
+  isOwnProfile = false,
   friendshipStatus,
   friendshipId,
   iAmRequester = false,
@@ -48,11 +48,8 @@ export function ProfileHeader({
   const [loading, setLoading] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // currentUserIdProp vient du serveur (source de vérité)
-  // Si fourni et différent de profile.id → jamais isOwn, quoi qu'il arrive côté client
-  const isOwn = currentUserIdProp
-    ? currentUserIdProp === profile.id
-    : currentUser?.id === profile.id;
+  // isOwnProfile calculé sur le serveur — source de vérité absolue
+  const isOwn = isOwnProfile;
 
   // Détermine l'état de relation précis
   const relation: RelationState = (() => {

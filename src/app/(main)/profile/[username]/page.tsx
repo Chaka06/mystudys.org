@@ -45,6 +45,7 @@ export default async function ProfilePage({ params }: Props) {
     <ProfilePageClient
       profile={profile}
       currentUserId={user.id}
+      isOwnProfile={user.id === profile.id}
       friendshipStatus={friendshipStatus}
       friendshipId={friendshipId}
       iAmRequester={iAmRequester}
