@@ -38,7 +38,11 @@ export function SavedPosts({ userId }: { userId: string }) {
       ) : (
         posts.map((post, i) => (
           <motion.div key={post.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-            <PostCard post={post} onDelete={(id) => setPosts((p) => p.filter((x) => x.id !== id))} />
+            <PostCard
+              post={post}
+              onDelete={(id) => setPosts((p) => p.filter((x) => x.id !== id))}
+              onUnsave={(id) => setPosts((p) => p.filter((x) => x.id !== id))}
+            />
           </motion.div>
         ))
       )}

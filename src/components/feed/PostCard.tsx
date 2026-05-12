@@ -25,6 +25,7 @@ import { CommentSection } from "./CommentSection";
 interface PostCardProps {
   post: Post;
   onDelete?: (postId: string) => void;
+  onUnsave?: (postId: string) => void;
 }
 
 const POST_TYPE_COLORS: Record<string, string> = {
@@ -37,11 +38,12 @@ const POST_TYPE_COLORS: Record<string, string> = {
   general: "bg-muted text-muted-foreground",
 };
 
-export function PostCard({ post, onDelete }: PostCardProps) {
+export function PostCard({ post, onDelete, onUnsave }: PostCardProps) {
   const { profile } = useAuthStore();
   const [liked, setLiked] = useState(post.liked_by_user ?? false);
   const [likeCount, setLikeCount] = useState(post.like_count);
   const [saved, setSaved] = useState(post.saved_by_user ?? false);
+  const [commentCount, setCommentCount] = useState(post.comment_count);
   const [showComments, setShowComments] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
@@ -65,7 +67,11 @@ export function PostCard({ post, onDelete }: PostCardProps) {
     const newSaved = !saved;
     setSaved(newSaved);
     await toggleSaveAction(post.id, saved);
-    if (newSaved) toast.success("Publication enregistrée");
+    if (newSaved) {
+      toast.success("Publication enregistrée");
+    } else {
+      onUnsave?.(post.id);
+    }
   };
 
   const handleDelete = async () => {
@@ -155,6 +161,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
                       <button
                         onClick={async () => {
                           setMenuOpen(false);
+                          if (!window.confirm("Signaler cette publication comme inappropriée ?")) return;
                           const r = await reportPostAction(post.id, "Contenu inapproprié");
                           toast[r.error ? "error" : "success"](r.error ? "Erreur lors du signalement" : "Publication signalée, merci !");
                         }}
@@ -254,7 +261,7 @@ export function PostCard({ post, onDelete }: PostCardProps) {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-muted-foreground hover:text-brand-orange hover:bg-brand-orange/10 transition-colors"
             >
               <MessageCircle className="h-4 w-4" />
-              <span>{post.comment_count > 0 && post.comment_count}</span>
+              <span>{commentCount > 0 && commentCount}</span>
             </button>
 
             <button
@@ -288,7 +295,10 @@ export function PostCard({ post, onDelete }: PostCardProps) {
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-t border-border/60"
             >
-              <CommentSection postId={post.id} />
+              <CommentSection
+                postId={post.id}
+                onCommentAdded={() => setCommentCount((c) => c + 1)}
+              />
             </motion.div>
           )}
         </AnimatePresence>

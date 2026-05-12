@@ -204,7 +204,7 @@ export function MessageThread({ conversation }: Props) {
 
           // Pour les PDFs, le nom du fichier est dans msg.content (on l'y a mis lors de l'envoi)
           // Pour les messages texte, msg.content est le texte
-          const isContentFilename = hasMedia && mediaIsPdf && !content.includes("http");
+          const isContentFilename = hasMedia && mediaIsPdf && !!msg.content && !msg.content.includes("http");
           const displayContent    = (!mediaIsPdf) ? msg.content : "";
 
           const msgUrl = displayContent ? extractFirstUrl(displayContent) : null;

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { Search, MessageCirclePlus, MessageCircle } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,7 @@ interface ConversationListProps {
 export function ConversationList({ userId, activeId }: ConversationListProps) {
   const { conversations, loading } = useConversations(userId);
   const [search, setSearch] = useState("");
+  const router = useRouter();
 
   const filtered = conversations.filter((c) => {
     if (!search.trim()) return true;
@@ -34,7 +36,11 @@ export function ConversationList({ userId, activeId }: ConversationListProps) {
       <div className="px-4 pt-4 pb-3 shrink-0 space-y-3 border-b border-border/40">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-lg">Messages</h2>
-          <button className="p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-brand-orange">
+          <button
+            onClick={() => router.push("/search?type=users")}
+            title="Nouvelle conversation"
+            className="p-2 rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-brand-orange"
+          >
             <MessageCirclePlus className="h-5 w-5" />
           </button>
         </div>

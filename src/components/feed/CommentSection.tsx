@@ -11,7 +11,7 @@ import { formatRelativeTime, getInitials } from "@/lib/utils";
 import { useAuthStore } from "@/stores/authStore";
 import type { Comment } from "@/types/database.types";
 
-export function CommentSection({ postId }: { postId: string }) {
+export function CommentSection({ postId, onCommentAdded }: { postId: string; onCommentAdded?: () => void }) {
   const { profile } = useAuthStore();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +46,7 @@ export function CommentSection({ postId }: { postId: string }) {
       setComments((prev) => [...prev, comment as Comment]);
       setContent("");
       setReplyTo(null);
+      onCommentAdded?.();
     }
     setSubmitting(false);
   };

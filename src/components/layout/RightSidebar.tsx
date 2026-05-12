@@ -24,9 +24,9 @@ export function RightSidebar() {
   // Tous les hooks AVANT tout return conditionnel (Rules of Hooks)
   const [suggestions, setSuggestions] = useState<SuggestedUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
 
   useEffect(() => {
-    // Ne pas charger sur les pages de messagerie
     if (pathname.startsWith("/messages")) return;
     if (!profile) return;
     fetch("/api/friends?type=suggestions")
@@ -34,6 +34,21 @@ export function RightSidebar() {
       .then(({ suggestions }) => { setSuggestions((suggestions ?? []).slice(0, 5)); setLoading(false); })
       .catch(() => setLoading(false));
   }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (pathname.startsWith("/messages")) return;
+    fetch("/api/trending")
+      .then((r) => r.json())
+      .then(({ posts }) => {
+        // Extraire les matières et institutions les plus présentes
+        const topics = (posts ?? [])
+          .flatMap((p: any) => [p.subject_name, p.institution].filter(Boolean))
+          .filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
+          .slice(0, 5);
+        if (topics.length > 0) setTrendingTopics(topics);
+      })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAddFriend = async (userId: string, name: string) => {
     await fetch("/api/friends", {
@@ -125,14 +140,17 @@ export function RightSidebar() {
           Tendances
         </h3>
         <div className="space-y-2">
-          {["Mathématiques", "Droit", "Informatique", "Économie", "Biologie"].map((topic, i) => (
+          {(trendingTopics.length > 0
+            ? trendingTopics
+            : ["Mathématiques", "Droit", "Informatique", "Économie", "Biologie"]
+          ).map((topic, i) => (
             <Link
               key={topic}
               href={`/search?q=${encodeURIComponent(topic)}`}
               className="flex items-center justify-between py-1.5 hover:bg-muted px-2 rounded-lg transition-colors group"
             >
               <div>
-                <p className="text-xs text-muted-foreground">#{i + 1} · Matière</p>
+                <p className="text-xs text-muted-foreground">#{i + 1} · Tendance</p>
                 <p className="text-sm font-medium group-hover:text-brand-orange transition-colors">
                   {topic}
                 </p>
@@ -146,7 +164,7 @@ export function RightSidebar() {
       {/* Footer links */}
       <div className="px-2">
         <p className="text-[10px] text-muted-foreground leading-relaxed">
-          © 2025 STUDY'S 🇨🇮 ·{" "}
+          © 2026 STUDY'S 🇨🇮 ·{" "}
           <Link href="/about"   className="hover:text-orange-500 transition-colors">À propos</Link> ·{" "}
           <Link href="/privacy" className="hover:text-orange-500 transition-colors">Confidentialité</Link> ·{" "}
           <Link href="/terms"   className="hover:text-orange-500 transition-colors">CGU</Link> ·{" "}
