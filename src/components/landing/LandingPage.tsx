@@ -182,7 +182,7 @@ export function LandingPage() {
               </Link>
             </div>
 
-            <p className="text-xs text-gray-400 mb-16">Gratuit · Aucune carte bancaire · 100% ivoirien</p>
+            <p className="text-xs text-gray-400 mb-16"></p>
           </motion.div>
 
           {/* ── App mockup ── */}
@@ -520,9 +520,14 @@ export function LandingPage() {
       <footer className="bg-gray-900 text-gray-400 py-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-6">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center">
-              <BookOpen className="h-4 w-4 text-white" />
-            </div>
+            <Image
+              src="/logostudys.png"
+              alt="STUDY'S"
+              width={32}
+              height={32}
+              style={{ width: "auto", height: "32px" }}
+              className="object-contain"
+            />
             <span className="font-display font-bold text-base">
               <span className="text-orange-400">STUDY</span>
               <span className="text-green-400">'S</span>

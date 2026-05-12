@@ -33,7 +33,7 @@ export function MobileNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
-      <div className="border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+      <div className="border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 pb-safe">
         <div className="flex items-center justify-around h-16 px-2">
           {navItems.map((item) => {
             const href = item.href === "/profile/me"
