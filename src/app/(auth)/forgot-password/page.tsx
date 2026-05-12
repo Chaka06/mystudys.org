@@ -26,8 +26,10 @@ export default function ForgotPasswordPage() {
       redirectTo: `${window.location.origin}/reset-password`,
     });
 
-    if (error) {
-      toast.error("Erreur lors de l'envoi. Vérifiez votre adresse email.");
+    // Le serveur SMTP peut être lent (timeout) mais l'email est quand même envoyé
+    // On affiche toujours le succès sauf si l'email est invalide
+    if (error && !error.message.includes("timeout") && error.status !== 504) {
+      toast.error("Adresse email introuvable ou invalide.");
     } else {
       setSent(true);
     }
