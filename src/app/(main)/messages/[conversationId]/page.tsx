@@ -1,0 +1,51 @@
+import { notFound, redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { ConversationList } from "@/components/messages/ConversationList";
+import { MessageThread } from "@/components/messages/MessageThread";
+
+interface Props {
+  params: Promise<{ conversationId: string }>;
+}
+
+export default async function ConversationPage({ params }: Props) {
+  const { conversationId } = await params;
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: conversation } = await supabase
+    .from("conversations")
+    .select(`
+      *,
+      p1:profiles!conversations_participant_1_fkey(id,username,first_name,full_name,avatar_url,last_seen_at),
+      p2:profiles!conversations_participant_2_fkey(id,username,first_name,full_name,avatar_url,last_seen_at)
+    `)
+    .eq("id", conversationId)
+    .single();
+
+  if (!conversation) notFound();
+  if (conversation.participant_1 !== user.id && conversation.participant_2 !== user.id) {
+    redirect("/messages");
+  }
+
+  const enriched = {
+    ...conversation,
+    other_participant:
+      conversation.participant_1 === user.id ? conversation.p2 : conversation.p1,
+  };
+
+  return (
+    <div className="flex h-[calc(100svh-5rem)] rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
+      {/* Panneau gauche : liste des conversations (caché sur mobile) */}
+      <div className="hidden lg:flex w-72 shrink-0 border-r border-border/60 flex-col">
+        <ConversationList userId={user.id} activeId={conversationId} />
+      </div>
+
+      {/* Panneau droit : fil de discussion */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <MessageThread conversation={enriched} />
+      </div>
+    </div>
+  );
+}
