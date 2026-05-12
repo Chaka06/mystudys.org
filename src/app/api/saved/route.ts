@@ -20,9 +20,26 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const posts = (data ?? [])
-    .map((s: any) => s.post ? { ...s.post, saved_by_user: true } : null)
+  const valid = (data ?? [])
+    .map((s: any) => s.post)
     .filter(Boolean);
+
+  if (!valid.length) return NextResponse.json({ posts: [] });
+
+  const ids = valid.map((p: any) => p.id);
+  const { data: liked } = await supabase
+    .from("post_likes")
+    .select("post_id")
+    .eq("user_id", user.id)
+    .in("post_id", ids);
+
+  const likedSet = new Set((liked ?? []).map((l: any) => l.post_id));
+
+  const posts = valid.map((p: any) => ({
+    ...p,
+    saved_by_user: true,
+    liked_by_user: likedSet.has(p.id),
+  }));
 
   return NextResponse.json({ posts });
 }
