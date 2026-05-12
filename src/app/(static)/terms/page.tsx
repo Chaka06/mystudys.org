@@ -275,7 +275,7 @@ export default function TermsPage() {
           d'Abidjan, République de Côte d'Ivoire.
         </p>
         <p>
-          Pour toute question relative aux CGU : <strong>legal@studys.ci</strong>
+          Pour toute question relative aux CGU : <strong>legal@mystudys.org</strong>
         </p>
       </Section>
 

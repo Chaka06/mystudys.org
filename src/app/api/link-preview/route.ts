@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(url, {
       headers: {
-        "User-Agent": "StudysBot/1.0 (+https://studys.ci)",
+        "User-Agent": "StudysBot/1.0 (+https://mystudys.org)",
         "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "fr,en;q=0.5",
       },

@@ -202,7 +202,7 @@ export function LandingPage() {
                   <div className="h-3 w-3 rounded-full bg-green-400" />
                 </div>
                 <div className="flex-1 bg-white rounded-lg px-3 py-1 text-xs text-gray-400 text-center border border-gray-200 max-w-48 mx-auto">
-                  studys.ci/feed
+                  mystudys.org/feed
                 </div>
               </div>
               {/* Navbar mockup */}

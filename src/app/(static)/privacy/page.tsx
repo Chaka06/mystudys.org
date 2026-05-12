@@ -143,7 +143,7 @@ export default function PrivacyPage() {
         <p>
           En dehors de ce cas particulier, vos données sont conservées tant que votre
           compte est actif. Vous pouvez demander la suppression complète de votre compte
-          et de toutes vos données à tout moment à <strong>privacy@studys.ci</strong>.
+          et de toutes vos données à tout moment à <strong>privacy@mystudys.org</strong>.
         </p>
       </Section>
 
@@ -187,7 +187,7 @@ export default function PrivacyPage() {
           <li><strong>Droit d'opposition</strong> : vous opposer à certains traitements de données</li>
         </ul>
         <p>
-          Pour exercer ces droits : <strong>privacy@studys.ci</strong>
+          Pour exercer ces droits : <strong>privacy@mystudys.org</strong>
           <br />
           <span className="text-sm text-gray-500">Nous répondons dans un délai maximum de 30 jours.</span>
         </p>
@@ -198,7 +198,7 @@ export default function PrivacyPage() {
           Pour toute question relative à cette politique de confidentialité :
         </p>
         <ul className="list-none space-y-1">
-          <li>📧 <strong>privacy@studys.ci</strong></li>
+          <li>📧 <strong>privacy@mystudys.org</strong></li>
           <li>📍 STUDY'S — Abidjan, Côte d'Ivoire</li>
         </ul>
       </Section>
