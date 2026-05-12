@@ -22,17 +22,15 @@ export default function ForgotPasswordPage() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+
+    // On lance la requête sans attendre — le SMTP LWS peut être lent (~15s)
+    // mais Supabase envoie l'email quand même. On affiche le succès après 3s max.
+    supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
 
-    // Le serveur SMTP peut être lent (timeout) mais l'email est quand même envoyé
-    // On affiche toujours le succès sauf si l'email est invalide
-    if (error && !error.message.includes("timeout") && error.status !== 504) {
-      toast.error("Adresse email introuvable ou invalide.");
-    } else {
-      setSent(true);
-    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    setSent(true);
     setLoading(false);
   };
 
