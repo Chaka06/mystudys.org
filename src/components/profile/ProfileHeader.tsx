@@ -48,9 +48,11 @@ export function ProfileHeader({
   const [loading, setLoading] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // On privilégie la prop serveur (toujours fiable) sur le store client (hydratation async)
-  const myId = currentUserIdProp ?? currentUser?.id;
-  const isOwn = !!myId && myId === profile.id;
+  // currentUserIdProp vient du serveur (source de vérité)
+  // Si fourni et différent de profile.id → jamais isOwn, quoi qu'il arrive côté client
+  const isOwn = currentUserIdProp
+    ? currentUserIdProp === profile.id
+    : currentUser?.id === profile.id;
 
   // Détermine l'état de relation précis
   const relation: RelationState = (() => {

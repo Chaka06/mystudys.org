@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ProfileHeader } from "./ProfileHeader";
 import { ProfilePostsList } from "./ProfilePostsList";
 import { createClient } from "@/lib/supabase/client";
@@ -27,20 +27,7 @@ export function ProfilePageClient({
   const [iAmRequester, setIAmRequester] = useState(initialIsRequester);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Realtime — met à jour les boutons profil quand l'amitié change
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`friendship-profile-${profile.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => {
-        handleFriendshipChange();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [profile.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleFriendshipChange = async () => {
-    const { createClient } = await import("@/lib/supabase/client");
+  const handleFriendshipChange = useCallback(async () => {
     const supabase = createClient();
     const { data } = await supabase
       .from("friendships")
@@ -51,7 +38,28 @@ export function ProfilePageClient({
     setFriendshipId(data?.id);
     setIAmRequester(data?.requester_id === currentUserId);
     setRefreshKey((k) => k + 1);
-  };
+  }, [currentUserId, profile.id]);
+
+  // Realtime — refresh statut amitié quand une amitié impliquant ces deux users change
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`friendship-${currentUserId}-${profile.id}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "friendships",
+        filter: `requester_id=eq.${currentUserId}`,
+      }, handleFriendshipChange)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "friendships",
+        filter: `addressee_id=eq.${currentUserId}`,
+      }, handleFriendshipChange)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUserId, profile.id, handleFriendshipChange]);
 
   return (
     <div className="space-y-4 pb-20 lg:pb-4">
