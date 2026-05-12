@@ -4,16 +4,19 @@ import type { Notification } from "@/types/database.types";
 interface NotificationState {
   notifications: Notification[];
   unreadCount: number;
+  friendRequestCount: number;
   setNotifications: (notifications: Notification[]) => void;
   addNotification: (notification: Notification) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   setUnreadCount: (count: number) => void;
+  setFriendRequestCount: (count: number) => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
   unreadCount: 0,
+  friendRequestCount: 0,
   setNotifications: (notifications) =>
     set({
       notifications,
@@ -37,4 +40,5 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       unreadCount: 0,
     })),
   setUnreadCount: (count) => set({ unreadCount: count }),
+  setFriendRequestCount: (count) => set({ friendRequestCount: count }),
 }));

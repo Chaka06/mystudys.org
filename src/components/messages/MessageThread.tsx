@@ -27,12 +27,14 @@ type UploadState = "idle" | "uploading" | "error";
 const isImageUrl = (url: string) => /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url);
 const isPdfUrl   = (url: string) => /\.pdf(\?|$)/i.test(url);
 
+const _today = new Date().toDateString();
+const _yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toDateString(); })();
+
 function formatDate(iso: string) {
   const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Aujourd'hui";
-  if (d.toDateString() === yesterday.toDateString()) return "Hier";
+  const ds = d.toDateString();
+  if (ds === _today) return "Aujourd'hui";
+  if (ds === _yesterday) return "Hier";
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 

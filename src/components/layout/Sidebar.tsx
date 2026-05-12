@@ -13,8 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useNotificationStore } from "@/stores/notificationStore";
 import { getInitials } from "@/lib/utils";
-import { useEffect, useState } from "react";
 
 const navItems = [
   { href: "/feed", icon: Home, label: "Accueil" },
@@ -40,17 +40,9 @@ function isHrefActive(href: string, pathname: string, searchParams: URLSearchPar
 export function Sidebar() {
   const { profile } = useAuth();
   const { unreadCount } = useNotifications();
+  const { friendRequestCount: friendRequests } = useNotificationStore();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [friendRequests, setFriendRequests] = useState(0);
-
-  useEffect(() => {
-    if (!profile) return;
-    fetch("/api/friends?type=requests")
-      .then((r) => r.json())
-      .then(({ requests }) => setFriendRequests((requests ?? []).length))
-      .catch(() => {});
-  }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!profile) return null;
 

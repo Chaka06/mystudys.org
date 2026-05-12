@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -38,7 +38,7 @@ const POST_TYPE_COLORS: Record<string, string> = {
   general: "bg-muted text-muted-foreground",
 };
 
-export function PostCard({ post, onDelete, onUnsave }: PostCardProps) {
+export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: PostCardProps) {
   const { profile } = useAuthStore();
   const [liked, setLiked] = useState(post.liked_by_user ?? false);
   const [likeCount, setLikeCount] = useState(post.like_count);
@@ -305,7 +305,7 @@ export function PostCard({ post, onDelete, onUnsave }: PostCardProps) {
       </Card>
     </motion.div>
   );
-}
+}, (prev, next) => prev.post.id === next.post.id && prev.post.like_count === next.post.like_count && prev.post.comment_count === next.post.comment_count);
 
 function ImageGrid({ images }: { images: { url: string }[] }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);

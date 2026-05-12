@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { Home, Users, PlusSquare, Bell, User } from "lucide-react";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotificationStore } from "@/stores/notificationStore";
 
 const navItems = [
   { href: "/feed", icon: Home, label: "Accueil" },
@@ -21,15 +21,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const { unreadCount } = useNotifications();
   const { profile } = useAuth();
-  const [friendRequests, setFriendRequests] = useState(0);
-
-  useEffect(() => {
-    if (!profile) return;
-    fetch("/api/friends?type=requests")
-      .then((r) => r.json())
-      .then(({ requests }) => setFriendRequests((requests ?? []).length))
-      .catch(() => {});
-  }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { friendRequestCount: friendRequests } = useNotificationStore();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">

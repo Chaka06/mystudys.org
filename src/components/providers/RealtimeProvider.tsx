@@ -5,23 +5,23 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/authStore";
 import { useNotificationStore } from "@/stores/notificationStore";
 import type { Notification } from "@/types/database.types";
-
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuthStore();
-  const { setNotifications, addNotification } = useNotificationStore();
+  const { setNotifications, addNotification, setFriendRequestCount } = useNotificationStore();
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
 
   useEffect(() => {
     if (!user) return;
     const supabase = createClient();
 
-    // Chargement initial des notifications
-    fetch("/api/notifications")
-      .then((r) => r.json())
-      .then(({ notifications }) => {
-        if (notifications) setNotifications(notifications as Notification[]);
-      })
-      .catch(() => {});
+    // Chargement initial en parallèle — 1 seul fetch pour notifications + demandes d'amis
+    Promise.all([
+      fetch("/api/notifications").then((r) => r.json()),
+      fetch("/api/friends?type=requests").then((r) => r.json()),
+    ]).then(([{ notifications }, { requests }]) => {
+      if (notifications) setNotifications(notifications as Notification[]);
+      if (requests) setFriendRequestCount((requests as any[]).length);
+    }).catch(() => {});
 
     // Abonnement Realtime : nouvelles notifications en temps réel
     if (channelRef.current) supabase.removeChannel(channelRef.current);

@@ -29,8 +29,8 @@ export function FriendsPage({ userId, defaultTab = "friends" }: { userId: string
   const [suggestions, setSuggestions] = useState<SuggestionEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async (t: Tab) => {
-    setLoading(true);
+  const load = async (t: Tab, silent = false) => {
+    if (!silent) setLoading(true);
     if (t === "suggestions") {
       const { suggestions } = await callApi("/api/friends?type=suggestions");
       setSuggestions(suggestions ?? []);
@@ -45,18 +45,18 @@ export function FriendsPage({ userId, defaultTab = "friends" }: { userId: string
       setFriends(friends ?? []);
       setRequests(requests ?? []);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   };
 
   useEffect(() => { load(tab); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Realtime — refresh automatique quand une amitié change
+  // Realtime — refresh silencieux (pas de skeleton) quand une amitié change
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
       .channel(`friendships:${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "friendships", filter: `requester_id=eq.${userId}` }, () => load("friends"))
-      .on("postgres_changes", { event: "*", schema: "public", table: "friendships", filter: `addressee_id=eq.${userId}` }, () => { load("friends"); load("requests"); })
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships", filter: `requester_id=eq.${userId}` }, () => load("friends", true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships", filter: `addressee_id=eq.${userId}` }, () => { load("friends", true); load("requests", true); })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps

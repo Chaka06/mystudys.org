@@ -1,6 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
+
+// Cache en mémoire — évite de refetcher la même URL plusieurs fois dans la session
+const previewCache = new Map<string, any>();
 import { ExternalLink, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -17,12 +20,19 @@ interface LinkPreviewCardProps {
   compact?: boolean;
 }
 
-export function LinkPreviewCard({ url, compact = false }: LinkPreviewCardProps) {
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const [loading, setLoading] = useState(true);
+export const LinkPreviewCard = memo(function LinkPreviewCard({ url, compact = false }: LinkPreviewCardProps) {
+  const cached = previewCache.get(url);
+  const [preview, setPreview] = useState<Preview | null>(cached ?? null);
+  const [loading, setLoading] = useState(!cached);
   const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
+    if (previewCache.has(url)) {
+      setPreview(previewCache.get(url));
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setPreview(null);
@@ -31,8 +41,11 @@ export function LinkPreviewCard({ url, compact = false }: LinkPreviewCardProps) 
     fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
       .then((r) => r.json())
       .then((data) => {
-        if (!cancelled && !data.error && data.title) setPreview(data);
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
+        const result = (!data.error && data.title) ? data : null;
+        previewCache.set(url, result);
+        setPreview(result);
+        setLoading(false);
       })
       .catch(() => { if (!cancelled) setLoading(false); });
 
@@ -110,7 +123,7 @@ export function LinkPreviewCard({ url, compact = false }: LinkPreviewCardProps) 
       </div>
     </a>
   );
-}
+});
 
 // Détecte les URLs dans un texte et retourne la première
 export function extractFirstUrl(text: string): string | null {
