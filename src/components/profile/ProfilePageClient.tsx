@@ -57,6 +57,7 @@ export function ProfilePageClient({
     <div className="space-y-4 pb-20 lg:pb-4">
       <ProfileHeader
         profile={profile}
+        currentUserId={currentUserId}
         friendshipStatus={friendshipStatus}
         friendshipId={friendshipId}
         iAmRequester={iAmRequester}
