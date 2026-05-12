@@ -37,7 +37,7 @@ export function MobileNav() {
         <div className="flex items-center justify-around h-16 px-2">
           {navItems.map((item) => {
             const href = item.href === "/profile/me"
-              ? `/profile/${profile?.username ?? "me"}`
+              ? (profile?.username ? `/profile/${profile.username}` : "/feed")
               : item.href;
             const active = pathname === href || (item.href !== "/feed" && pathname.startsWith(item.href));
 

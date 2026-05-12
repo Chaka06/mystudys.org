@@ -136,7 +136,7 @@ export function Navbar() {
                       <p className="text-xs text-muted-foreground truncate">@{profile?.username}</p>
                     </div>
 
-                    <MenuItem href={`/profile/${profile?.username}`} icon={<User className="h-4 w-4" />} onClick={() => setMenuOpen(false)}>
+                    <MenuItem href={profile?.username ? `/profile/${profile.username}` : "/feed"} icon={<User className="h-4 w-4" />} onClick={() => setMenuOpen(false)}>
                       Mon profil
                     </MenuItem>
                     <MenuItem href="/profile/settings" icon={<Settings className="h-4 w-4" />} onClick={() => setMenuOpen(false)}>
