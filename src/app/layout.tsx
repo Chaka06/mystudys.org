@@ -263,16 +263,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        {/* JSON-LD côté serveur — obligatoire pour que Google le lise avant rendu JS */}
+        {/* JSON-LD */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        {/* Geo targeting Côte d'Ivoire / Abidjan */}
+        {/* Geo targeting Côte d'Ivoire */}
         <meta name="geo.region" content="CI" />
         <meta name="geo.placename" content="Abidjan, Côte d'Ivoire" />
         <meta name="geo.position" content="5.3600;-4.0083" />
         <meta name="ICBM" content="5.3600, -4.0083" />
+        {/* iOS PWA — splash screen + couleur status bar */}
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-startup-image" href="/icons/icon-512x512.png" />
+        {/* Couleur de la barre de titre sur Android Chrome */}
+        <meta name="theme-color" content="#F97316" />
+        {/* Empêche le zoom sur double-tap iOS */}
+        <meta name="format-detection" content="telephone=no" />
       </head>
       <body className={`${inter.variable} ${spaceGrotesk.variable} antialiased`}>
         <Providers>

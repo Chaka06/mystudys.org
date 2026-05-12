@@ -82,20 +82,57 @@
   }
 }
 
-/* PWA safe areas */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .pb-safe {
-    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
-  }
+/* ─── PWA / Mobile ─────────────────────────────────────────────────────── */
+
+/* Safe areas — juste la valeur native, sans padding supplémentaire */
+.pb-safe  { padding-bottom: env(safe-area-inset-bottom); }
+.pt-safe  { padding-top:    env(safe-area-inset-top); }
+.mb-safe  { margin-bottom:  env(safe-area-inset-bottom); }
+
+/* Overscroll : supprime le bounce iOS et le pull-to-refresh Chrome */
+html, body {
+  overscroll-behavior: none;
 }
 
-/* Smooth scrolling on iOS */
-.overflow-y-auto {
+/* Scrolling fluide iOS */
+.overflow-y-auto,
+.overflow-y-scroll {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Forcer le fond clair sur tout */
+/* Empêche la sélection de texte sur les éléments d'interface */
+button, a, nav, [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Images non-draggables (comportement natif) */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+}
+
+/* Fond clair partout */
 html, body, #__next {
   background-color: #F8F9FB !important;
   color-scheme: light !important;
+}
+
+/* Transitions de pages fluides */
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-transition {
+  animation: page-in 0.2s ease-out;
+}
+
+/* Scrollbar masquée sur mobile */
+@media (max-width: 1024px) {
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar { display: none; }
 }

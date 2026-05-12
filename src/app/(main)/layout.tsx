@@ -19,7 +19,11 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         <Navbar />
         <LayoutContainer>
           <Sidebar />
-          <MainContent>{children}</MainContent>
+          <MainContent>
+            <div className="page-transition">
+              {children}
+            </div>
+          </MainContent>
           <RightSidebar />
         </LayoutContainer>
         <MobileNav />
