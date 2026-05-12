@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 import { ServiceWorkerProvider } from "@/components/providers/ServiceWorkerProvider";
+import { PushNotificationProvider } from "@/components/providers/PushNotificationProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -30,6 +31,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       >
         {children}
         <ServiceWorkerProvider />
+        <PushNotificationProvider />
       </ThemeProvider>
       {process.env.NODE_ENV === "development" && (
         <ReactQueryDevtools initialIsOpen={false} />

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ProfileHeader } from "./ProfileHeader";
 import { ProfilePostsList } from "./ProfilePostsList";
+import { createClient } from "@/lib/supabase/client";
 import type { Profile, FriendshipStatus } from "@/types/database.types";
 
 interface Props {
@@ -25,6 +26,18 @@ export function ProfilePageClient({
   const [friendshipId, setFriendshipId] = useState(initialFriendshipId);
   const [iAmRequester, setIAmRequester] = useState(initialIsRequester);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Realtime — met à jour les boutons profil quand l'amitié change
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`friendship-profile-${profile.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => {
+        handleFriendshipChange();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFriendshipChange = async () => {
     const { createClient } = await import("@/lib/supabase/client");

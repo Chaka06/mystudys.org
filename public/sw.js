@@ -23,3 +23,30 @@ self.addEventListener('fetch', (e) => {
     fetch(e.request).catch(() => caches.match(e.request).then((r) => r ?? caches.match(OFFLINE_URL)))
   );
 });
+
+// ─── Push notifications ────────────────────────────────────────────────────
+self.addEventListener('push', (e) => {
+  if (!e.data) return;
+  const data = e.data.json();
+  e.waitUntil(
+    self.registration.showNotification(data.title ?? "STUDY'S", {
+      body: data.body ?? "",
+      icon: data.icon ?? '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      data: { url: data.url ?? '/notifications' },
+      vibrate: [200, 100, 200],
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = e.notification.data?.url ?? '/notifications';
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      const existing = list.find((c) => c.url.includes(self.location.origin));
+      if (existing) { existing.focus(); existing.navigate(url); }
+      else clients.openWindow(url);
+    })
+  );
+});

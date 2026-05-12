@@ -2,6 +2,17 @@
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 
+async function sendPushToUser(recipientId: string, title: string, body: string, url: string) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.mystudys.org";
+    await fetch(`${baseUrl}/api/push/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ recipientId, title, body, url }),
+    });
+  } catch {}
+}
+
 export async function createNotificationAction(params: {
   recipientId: string;
   type: string;
@@ -12,7 +23,7 @@ export async function createNotificationAction(params: {
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user || user.id === params.recipientId) return; // pas de notif à soi-même
+  if (!user || user.id === params.recipientId) return;
 
   const admin = await createAdminClient();
   await admin.from("notifications").insert({
@@ -24,4 +35,7 @@ export async function createNotificationAction(params: {
     resource_type: params.resourceType,
     resource_id: params.resourceId,
   });
+
+  // Envoyer aussi un push si l'utilisateur est abonné
+  await sendPushToUser(params.recipientId, params.title, params.body ?? "", "/notifications");
 }

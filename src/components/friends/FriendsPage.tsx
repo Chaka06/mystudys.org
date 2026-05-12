@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getInitials } from "@/lib/utils";
 import { ACADEMIC_LEVEL_LABELS, type Profile, type Friendship } from "@/types/database.types";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 type Tab = "friends" | "requests" | "suggestions";
@@ -48,6 +49,17 @@ export function FriendsPage({ userId, defaultTab = "friends" }: { userId: string
   };
 
   useEffect(() => { load(tab); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime — refresh automatique quand une amitié change
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`friendships:${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships", filter: `requester_id=eq.${userId}` }, () => load("friends"))
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships", filter: `addressee_id=eq.${userId}` }, () => { load("friends"); load("requests"); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const action = async (act: string, opts: { friendshipId?: string; addresseeId?: string; name?: string }) => {
     await callApi("/api/friends", {
