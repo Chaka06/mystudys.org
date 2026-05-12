@@ -204,7 +204,7 @@ export default function PrivacyPage() {
       </Section>
 
       <div className="bg-gray-50 rounded-2xl p-6 text-center text-sm text-gray-500">
-        <p>© 2025 STUDY'S · Abidjan, Côte d'Ivoire 🇨🇮</p>
+        <p>© 2026 STUDY'S · Abidjan, Côte d'Ivoire 🇨🇮</p>
         <p className="mt-1">Votre vie privée est notre priorité.</p>
       </div>
     </div>

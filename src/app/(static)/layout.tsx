@@ -43,7 +43,7 @@ export default function StaticLayout({ children }: { children: React.ReactNode }
             <span className="text-green-600">'S</span>
           </span>
         </Link>
-        <p>© 2025 STUDY'S · Abidjan, Côte d'Ivoire 🇨🇮</p>
+        <p>© 2026 STUDY'S · Abidjan, Côte d'Ivoire 🇨🇮</p>
         <div className="flex justify-center gap-4 text-xs">
           <Link href="/about"   className="hover:text-orange-500 transition-colors">À propos</Link>
           <Link href="/privacy" className="hover:text-orange-500 transition-colors">Confidentialité</Link>

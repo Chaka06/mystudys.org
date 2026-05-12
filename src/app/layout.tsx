@@ -79,8 +79,8 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    site: "@studysci",
-    creator: "@studysci",
+    site: "@mystudysorg",
+    creator: "@mystudysorg",
     title: "STUDY'S — Le réseau social étudiant ivoirien",
     description:
       "Partagez vos cours, sujets d'examens et connectez-vous avec des étudiants ivoiriens.",

@@ -284,7 +284,7 @@ export default function TermsPage() {
         <p className="text-white font-bold mb-1">
           <span className="text-orange-400">STUDY</span>'S — Réseau Social Étudiant Ivoirien
         </p>
-        <p>© 2025 STUDY'S · Abidjan, Côte d'Ivoire 🇨🇮</p>
+        <p>© 2026 STUDY'S · Abidjan, Côte d'Ivoire 🇨🇮</p>
         <p className="mt-2 text-xs">
           En utilisant STUDY'S, vous contribuez à construire une communauté estudiantine
           saine, bienveillante et tournée vers la réussite académique.

@@ -527,7 +527,7 @@ export function LandingPage() {
               <span className="text-orange-400">STUDY</span>
               <span className="text-green-400">'S</span>
             </span>
-            <span className="text-gray-600 text-sm">© 2025</span>
+            <span className="text-gray-600 text-sm">© 2026</span>
           </Link>
 
           <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">

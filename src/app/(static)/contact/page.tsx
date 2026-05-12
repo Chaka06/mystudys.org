@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, MessageCircle, MapPin, Phone, Send, CheckCircle } from "lucide-react";
+import { Mail, MessageCircle, MapPin, Send, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,16 +19,28 @@ export default function ContactPage() {
       toast.error("Veuillez remplir tous les champs obligatoires"); return;
     }
     setLoading(true);
-    // Simulation d'envoi (à connecter à un service email réel)
-    await new Promise((r) => setTimeout(r, 1000));
-    setSent(true);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        setSent(true);
+      } else {
+        const { error } = await res.json();
+        toast.error(error ?? "Erreur lors de l'envoi");
+      }
+    } catch {
+      toast.error("Erreur réseau, réessayez.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const infos = [
-    { icon: Mail,    label: "Email",      value: "contact@studys.ci" },
-    { icon: Phone,   label: "Téléphone",  value: "+225 07 00 00 00 00" },
-    { icon: MapPin,  label: "Adresse",    value: "Abidjan, Côte d'Ivoire" },
+    { icon: Mail,    label: "Email",    value: "contact@mystudys.org" },
+    { icon: MapPin,  label: "Adresse",  value: "Abidjan, Côte d'Ivoire" },
   ];
 
   return (
@@ -46,7 +58,7 @@ export default function ContactPage() {
               className="text-center py-12 bg-green-50 rounded-2xl border border-green-100">
               <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-3" />
               <h3 className="font-bold text-gray-900 text-lg mb-2">Message envoyé !</h3>
-              <p className="text-gray-500 text-sm">Nous vous répondrons dans les 24-48h.</p>
+              <p className="text-gray-500 text-sm">Nous vous répondrons dans les 24-48h à l'adresse indiquée.</p>
             </motion.div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -66,9 +78,16 @@ export default function ContactPage() {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Message *</label>
-                <Textarea placeholder="Décrivez votre demande..." value={form.message}
+                <Textarea
+                  placeholder="Décrivez votre demande..."
+                  value={form.message}
                   onChange={(e) => setForm({ ...form, message: e.target.value })}
-                  className="min-h-[140px]" />
+                  className="min-h-[140px]"
+                  maxLength={2000}
+                />
+                {form.message.length > 1800 && (
+                  <p className="text-xs text-gray-400 text-right">{form.message.length}/2000</p>
+                )}
               </div>
               <Button type="submit" loading={loading} className="w-full bg-orange-500 hover:bg-orange-600 text-white">
                 <Send className="h-4 w-4" /> Envoyer le message
@@ -108,7 +127,7 @@ export default function ContactPage() {
             <p className="text-sm text-gray-500 leading-relaxed">
               Vous représentez un établissement scolaire ou universitaire et souhaitez
               intégrer STUDY'S dans votre environnement ?
-              Contactez-nous à <strong>partenariat@studys.ci</strong>
+              Contactez-nous à <strong>contact@mystudys.org</strong>
             </p>
           </div>
         </div>
