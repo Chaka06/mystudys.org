@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, MessageCircle, MapPin, Send, CheckCircle } from "lucide-react";
+import { Mail, MessageCircle, MapPin, Phone, Send, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,8 +39,9 @@ export default function ContactPage() {
   };
 
   const infos = [
-    { icon: Mail,    label: "Email",    value: "contact@mystudys.org" },
-    { icon: MapPin,  label: "Adresse",  value: "Abidjan, Côte d'Ivoire" },
+    { icon: Mail,    label: "Email",      value: "contact@mystudys.org" },
+    { icon: Phone,   label: "Téléphone",  value: "+225 07 99 29 84 20" },
+    { icon: MapPin,  label: "Adresse",    value: "Abidjan, Côte d'Ivoire" },
   ];
 
   return (

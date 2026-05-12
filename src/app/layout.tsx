@@ -161,6 +161,7 @@ const jsonLd = {
         "@type": "ContactPoint",
         contactType: "customer support",
         email: "contact@mystudys.org",
+        telephone: "+225-07-99-29-84-20",
         availableLanguage: "French",
       },
     },
