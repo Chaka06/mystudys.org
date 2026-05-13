@@ -16,20 +16,57 @@ export async function GET(req: NextRequest) {
   const offset = parseInt(searchParams.get("offset") ?? "0");
   const limit = 10;
 
-  const { data: posts, error } = await supabase
-    .from("posts")
-    .select(POST_SELECT)
-    .eq("is_deleted", false)
-    .eq("moderation_status", "approved")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+  // Utiliser le feed personnalisé si disponible, sinon fallback chronologique
+  let postIds: string[] | null = null;
+  try {
+    const { data: recommended } = await supabase.rpc("get_recommended_feed", {
+      p_user_id: user.id,
+      p_limit: limit,
+      p_offset: offset,
+    });
+    if (recommended && recommended.length > 0) {
+      postIds = (recommended as { post_id: string }[]).map((r) => r.post_id);
+    }
+  } catch {}
+
+  let posts: any[] = [];
+  let error: any;
+
+  if (postIds && postIds.length > 0) {
+    // Feed personnalisé — maintenir l'ordre de score
+    const { data, error: err } = await supabase
+      .from("posts")
+      .select(POST_SELECT)
+      .in("id", postIds)
+      .eq("is_deleted", false)
+      .eq("moderation_status", "approved");
+
+    error = err;
+    // Remettre dans l'ordre de score (in() ne garantit pas l'ordre)
+    if (data) {
+      const orderMap = new Map(postIds.map((id, i) => [id, i]));
+      posts = data
+        .filter((p: any) => p.author !== null)
+        .sort((a: any, b: any) => (orderMap.get(a.id) ?? 99) - (orderMap.get(b.id) ?? 99));
+    }
+  } else {
+    // Fallback : feed chronologique si pas de recommandations
+    const { data, error: err } = await supabase
+      .from("posts")
+      .select(POST_SELECT)
+      .eq("is_deleted", false)
+      .eq("moderation_status", "approved")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    error = err;
+    posts = (data ?? []).filter((p: any) => p.author !== null);
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const valid = (posts ?? []).filter((p) => p.author !== null);
-  const ids = valid.map((p: any) => p.id);
+  const ids = posts.map((p: any) => p.id);
 
-  // Enrichir avec likes/sauvegardes de l'utilisateur
   const [{ data: liked }, { data: saved }] = await Promise.all([
     ids.length ? supabase.from("post_likes").select("post_id").eq("user_id", user.id).in("post_id", ids) : Promise.resolve({ data: [] }),
     ids.length ? supabase.from("post_saves").select("post_id").eq("user_id", user.id).in("post_id", ids) : Promise.resolve({ data: [] }),
@@ -38,7 +75,7 @@ export async function GET(req: NextRequest) {
   const likedSet = new Set((liked ?? []).map((l: any) => l.post_id));
   const savedSet = new Set((saved ?? []).map((s: any) => s.post_id));
 
-  const enriched = valid.map((p: any) => ({
+  const enriched = posts.map((p: any) => ({
     ...p,
     liked_by_user: likedSet.has(p.id),
     saved_by_user: savedSet.has(p.id),

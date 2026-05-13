@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { isRateLimited } from "@/lib/rateLimit";
 
 // GET — messages d'une conversation
 export async function GET(req: NextRequest, { params }: { params: Promise<{ conversationId: string }> }) {
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ con
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+
+  // Rate limit : 30 messages / minute
+  if (isRateLimited(`messages:${user.id}`, 30, 60_000)) {
+    return NextResponse.json({ error: "Trop de messages, attendez un moment" }, { status: 429 });
+  }
 
   const { conversationId } = await params;
   const body = await req.json();

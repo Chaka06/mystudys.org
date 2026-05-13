@@ -14,7 +14,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const supabase = createClient();
 
-    // Chargement initial en parallèle — 1 seul fetch pour notifications + demandes d'amis
+    // Chargement initial en parallèle
     Promise.all([
       fetch("/api/notifications").then((r) => r.json()),
       fetch("/api/friends?type=requests").then((r) => r.json()),
@@ -22,6 +22,13 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       if (notifications) setNotifications(notifications as Notification[]);
       if (requests) setFriendRequestCount((requests as any[]).length);
     }).catch(() => {});
+
+    // Mettre à jour last_seen_at au login et toutes les 5 minutes
+    const updateLastSeen = () => {
+      supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id).then(() => {});
+    };
+    updateLastSeen();
+    const seenInterval = setInterval(updateLastSeen, 5 * 60 * 1000);
 
     // Abonnement Realtime : nouvelles notifications en temps réel
     if (channelRef.current) supabase.removeChannel(channelRef.current);
@@ -56,6 +63,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(seenInterval);
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
