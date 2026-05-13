@@ -3,8 +3,6 @@ import { NextRequest } from "next/server";
 import { GET } from "@/app/api/feed/route";
 import { createClient } from "@/lib/supabase/server";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
 const mockPost = (overrides = {}) => ({
   id: "post-1",
   author_id: "user-1",
@@ -26,61 +24,65 @@ const makeGetRequest = (params: Record<string, string> = {}) => {
   return new NextRequest(url.toString());
 };
 
-// ─── Mock Supabase ────────────────────────────────────────────────────────────
-
 function buildSupabaseMock(options: {
   user?: any;
   posts?: any[];
   liked?: any[];
   saved?: any[];
   error?: any;
+  userCount?: number;
 } = {}) {
   const posts = options.posts ?? [mockPost()];
   const liked = options.liked ?? [];
   const saved = options.saved ?? [];
-
-  const rangeResult = { data: posts, error: options.error ?? null };
-  const likeResult = { data: liked };
-  const saveResult = { data: saved };
-
-  let fromCallCount = 0;
-
-  const mockFrom = vi.fn((table: string) => {
-    if (table === "posts") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnThis(),
-          order: vi.fn().mockReturnThis(),
-          range: vi.fn().mockResolvedValue(rangeResult),
-        }),
-      };
-    }
-    if (table === "post_likes") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue(likeResult),
-        }),
-      };
-    }
-    if (table === "post_saves") {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnThis(),
-          in: vi.fn().mockResolvedValue(saveResult),
-        }),
-      };
-    }
-    return { select: vi.fn().mockReturnThis() };
-  });
+  const userCount = options.userCount ?? 5; // < 100 par défaut = feed chronologique
 
   vi.mocked(createClient).mockResolvedValue({
-    auth: { getUser: vi.fn().mockResolvedValue({ data: { user: options.user !== undefined ? options.user : { id: "user-1" } } }) },
-    from: mockFrom,
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: options.user !== undefined ? options.user : { id: "user-1" } },
+      }),
+    },
+    rpc: vi.fn().mockResolvedValue({ data: [] }), // RPC feed personnalisé vide
+    from: vi.fn((table: string) => {
+      if (table === "profiles") {
+        // Comptage des utilisateurs actifs pour le seuil personnalisé
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ count: userCount, data: null, error: null }),
+          }),
+        };
+      }
+      if (table === "posts") {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockReturnThis(),
+            order: vi.fn().mockReturnThis(),
+            range: vi.fn().mockResolvedValue({ data: posts, error: options.error ?? null }),
+          }),
+        };
+      }
+      if (table === "post_likes") {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockResolvedValue({ data: liked }),
+          }),
+        };
+      }
+      if (table === "post_saves") {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnThis(),
+            in: vi.fn().mockResolvedValue({ data: saved }),
+          }),
+        };
+      }
+      return { select: vi.fn().mockReturnThis() };
+    }),
   } as any);
 }
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("GET /api/feed", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -167,5 +169,17 @@ describe("GET /api/feed", () => {
     buildSupabaseMock({ posts: [mockPost()] });
     const res = await GET(makeGetRequest({ offset: "10" }));
     expect(res.status).toBe(200);
+  });
+
+  it("un post sauvegardé est bien marqué saved_by_user=true", async () => {
+    buildSupabaseMock({
+      posts: [mockPost({ id: "post-X" })],
+      liked: [],
+      saved: [{ post_id: "post-X" }],
+    });
+    const res = await GET(makeGetRequest());
+    const body = await res.json();
+    expect(body.posts[0].saved_by_user).toBe(true);
+    expect(body.posts[0].liked_by_user).toBe(false);
   });
 });

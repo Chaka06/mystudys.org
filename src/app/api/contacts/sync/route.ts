@@ -6,10 +6,8 @@ function normalizePhone(p: string): string {
   let n = p.replace(/[\s\-\(\)\.]+/g, "");
   n = n.replace(/^\+/, "");
   n = n.replace(/^00/, "");
-  // Numéro local ivoirien commençant par 0 (ex: 0700000000 → 225700000000)
-  if (/^0\d{9}$/.test(n)) n = "225" + n.slice(1);
-  // 10 chiffres sans indicatif → ajouter 225
-  if (/^\d{10}$/.test(n) && !n.startsWith("225")) n = "225" + n;
+  // Numéro local ivoirien 10 chiffres commençant par 0 (ex: 0799298420 → 2250799298420)
+  if (/^0\d{9}$/.test(n)) n = "225" + n;
   return n;
 }
 
