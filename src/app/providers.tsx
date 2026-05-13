@@ -8,6 +8,7 @@ import { ServiceWorkerProvider } from "@/components/providers/ServiceWorkerProvi
 import { PushNotificationProvider } from "@/components/providers/PushNotificationProvider";
 import { InstallPromptProvider } from "@/components/providers/InstallPromptProvider";
 import { OfflineProvider } from "@/components/providers/OfflineProvider";
+import { ContactsSyncProvider } from "@/components/providers/ContactsSyncProvider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -36,6 +37,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <PushNotificationProvider />
         <InstallPromptProvider />
         <OfflineProvider />
+        <ContactsSyncProvider />
       </ThemeProvider>
       {process.env.NODE_ENV === "development" && (
         <ReactQueryDevtools initialIsOpen={false} />

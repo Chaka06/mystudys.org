@@ -113,11 +113,11 @@ export function RightSidebar() {
                   <p className="text-[10px] text-muted-foreground truncate">
                     {user.institution ?? user.field_of_study ?? (user.academic_level ? ACADEMIC_LEVEL_LABELS[user.academic_level] : "")}
                   </p>
-                  {(user.common_friends ?? 0) > 0 && (
-                    <p className="text-[10px] text-brand-orange">
-                      {user.common_friends} ami(s) en commun
-                    </p>
-                  )}
+                  {(user as any).mutual_contact ? (
+                    <p className="text-[10px] text-brand-green font-semibold">📱 Vous vous connaissez</p>
+                  ) : (user.common_friends ?? 0) > 0 ? (
+                    <p className="text-[10px] text-brand-orange">{user.common_friends} ami(s) en commun</p>
+                  ) : null}
                 </div>
                 <Button
                   size="sm"

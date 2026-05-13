@@ -25,15 +25,48 @@ export async function GET(req: NextRequest) {
   const type = new URL(req.url).searchParams.get("type") ?? "friends";
 
   if (type === "suggestions") {
-    const { data } = await supabase.rpc("get_friend_suggestions", { p_user_id: user.id, p_limit: 10 });
-    if (!data?.length) return NextResponse.json({ suggestions: [] });
+    // Récupérer contacts mutuels ET suggestions amis d'amis en parallèle
+    const [{ data: mutualData }, { data: suggData }] = await Promise.all([
+      supabase.rpc("get_mutual_contacts", { p_user_id: user.id }),
+      supabase.rpc("get_friend_suggestions", { p_user_id: user.id, p_limit: 10 }),
+    ]);
 
-    const ids = data.map((s: any) => s.suggested_id);
-    const { data: profiles } = await supabase.from("profiles").select("*").in("id", ids);
-    const suggestions = (profiles ?? []).map((p: any) => ({
-      ...p,
-      common_friends: data.find((s: any) => s.suggested_id === p.id)?.common_friends ?? 0,
-    }));
+    // Exclure les gens déjà amis
+    const { data: existingFriends } = await supabase
+      .from("friendships")
+      .select("requester_id, addressee_id")
+      .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+      .in("status", ["accepted", "pending"]);
+
+    const excludeIds = new Set([
+      user.id,
+      ...(existingFriends ?? []).flatMap((f: any) => [f.requester_id, f.addressee_id]),
+    ]);
+
+    // Contacts mutuels d'abord (priorité haute)
+    const mutualIds = (mutualData ?? [])
+      .map((m: any) => m.profile_id)
+      .filter((id: string) => !excludeIds.has(id));
+
+    // Amis d'amis ensuite
+    const suggIds = (suggData ?? [])
+      .map((s: any) => s.suggested_id)
+      .filter((id: string) => !excludeIds.has(id) && !mutualIds.includes(id));
+
+    const allIds = [...mutualIds, ...suggIds].slice(0, 15);
+    if (!allIds.length) return NextResponse.json({ suggestions: [] });
+
+    const { data: profiles } = await supabase.from("profiles").select("*").in("id", allIds);
+
+    const suggestions = (profiles ?? [])
+      .map((p: any) => ({
+        ...p,
+        common_friends: (suggData ?? []).find((s: any) => s.suggested_id === p.id)?.common_friends ?? 0,
+        mutual_contact: mutualIds.includes(p.id), // Contact téléphonique mutuel
+      }))
+      // Contacts mutuels en tête
+      .sort((a: any, b: any) => (b.mutual_contact ? 1 : 0) - (a.mutual_contact ? 1 : 0));
+
     return NextResponse.json({ suggestions });
   }
 

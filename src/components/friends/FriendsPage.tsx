@@ -162,7 +162,14 @@ export function FriendsPage({ userId, defaultTab = "friends" }: { userId: string
                       <div className="flex-1 min-w-0">
                         <Link href={`/profile/${u.username}`}><p className="font-semibold text-sm hover:text-orange-500 truncate">{u.full_name}</p></Link>
                         <p className="text-xs text-gray-400 truncate">{u.institution ?? u.field_of_study ?? ""}</p>
-                        {(u.common_friends ?? 0) > 0 && <p className="text-[10px] text-orange-500 font-medium">{u.common_friends} ami(s) en commun</p>}
+                        {(u as any).mutual_contact && (
+                          <p className="text-[10px] text-brand-green font-semibold flex items-center gap-0.5">
+                            📱 Vous vous connaissez
+                          </p>
+                        )}
+                        {!(u as any).mutual_contact && (u.common_friends ?? 0) > 0 && (
+                          <p className="text-[10px] text-orange-500 font-medium">{u.common_friends} ami(s) en commun</p>
+                        )}
                       </div>
                       <Button size="sm" onClick={() => action("send", { addresseeId: u.id, name: u.first_name })} className="h-8 px-3 bg-orange-500 hover:bg-orange-600 text-white text-xs shrink-0">Ajouter</Button>
                     </div>
