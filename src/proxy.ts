@@ -30,25 +30,37 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // getSession() lit le cookie JWT localement — pas d'appel réseau (~0ms)
-  // Suffisant pour les redirections. Les routes sensibles utilisent getUser() côté serveur.
+  // IMPORTANT : getSession() peut rafraîchir le token et appeler setAll()
+  // Les nouveaux cookies DOIVENT être copiés sur la réponse de redirection
+  // sinon le navigateur ne reçoit jamais le token rafraîchi → boucle infinie
   const { data: { session } } = await supabase.auth.getSession();
 
   const path = request.nextUrl.pathname;
 
-  // Rediriger les visiteurs non connectés hors des pages publiques
-  if (!session && !PUBLIC_PATHS.some((p) => path === p || path.startsWith("/api/"))) {
+  // Helper : crée une redirection en préservant les cookies Supabase
+  const redirect = (pathname: string, params?: Record<string, string>) => {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirectTo", path);
-    return NextResponse.redirect(url);
+    url.pathname = pathname;
+    url.search = "";
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+    }
+    const res = NextResponse.redirect(url);
+    // Copier tous les cookies Supabase (token rafraîchi inclus)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      res.cookies.set(cookie.name, cookie.value, cookie as any);
+    });
+    return res;
+  };
+
+  // Visiteur non connecté sur une page protégée → /login
+  if (!session && !PUBLIC_PATHS.some((p) => path === p || path.startsWith("/api/"))) {
+    return redirect("/login", { redirectTo: path });
   }
 
-  // Rediriger les utilisateurs déjà connectés hors des pages d'auth
+  // Utilisateur connecté sur une page d'auth → /feed
   if (session && AUTH_PATHS.includes(path)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/feed";
-    return NextResponse.redirect(url);
+    return redirect("/feed");
   }
 
   return supabaseResponse;
