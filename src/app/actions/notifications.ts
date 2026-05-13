@@ -1,17 +1,7 @@
 "use server";
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-
-async function sendPushToUser(recipientId: string, title: string, body: string, url: string) {
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://www.mystudys.org";
-    await fetch(`${baseUrl}/api/push/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipientId, title, body, url }),
-    });
-  } catch {}
-}
+import { sendPush } from "@/lib/push";
 
 export async function createNotificationAction(params: {
   recipientId: string;
@@ -36,6 +26,5 @@ export async function createNotificationAction(params: {
     resource_id: params.resourceId,
   });
 
-  // Envoyer aussi un push si l'utilisateur est abonné
-  await sendPushToUser(params.recipientId, params.title, params.body ?? "", "/notifications");
+  await sendPush(params.recipientId, params.title, params.body ?? "", "/notifications");
 }

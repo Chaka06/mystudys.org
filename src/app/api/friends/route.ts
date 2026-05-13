@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { sendPush } from "@/lib/push";
 
 async function notify(
   recipientId: string, senderId: string,
@@ -13,6 +14,7 @@ async function notify(
     resource_type: resourceType ?? null,
     resource_id: resourceId ?? null,
   });
+  await sendPush(recipientId, title, body, "/notifications");
 }
 
 export async function GET(req: NextRequest) {

@@ -153,7 +153,6 @@ export function CreatePost({ userId, onPostCreated }: CreatePostProps) {
       reset();
       onPostCreated?.();
     } catch (err: unknown) {
-      console.error(err);
       toast.error("Erreur lors de la publication. Réessayez.");
     } finally {
       setSubmitting(false);

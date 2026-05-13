@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { sendPush } from "@/lib/push";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -51,6 +52,10 @@ export async function POST(req: NextRequest) {
       title: "Nouveau commentaire", body: `${sender?.full_name ?? "Quelqu'un"} a commenté votre publication`,
       resource_type: "post", resource_id: post_id,
     });
+  }
+
+  if (post && post.author_id !== user.id) {
+    await sendPush(post.author_id, "Nouveau commentaire", `Quelqu'un a commenté votre publication`, `/post/${post_id}`);
   }
 
   return NextResponse.json({ comment: data });

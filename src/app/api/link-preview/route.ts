@@ -15,6 +15,8 @@ function decodeHTML(t: string): string {
     .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
 }
 
+const BLOCKED = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|0\.0\.0\.0)/i;
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
   if (!url) return NextResponse.json({ error: "URL requise" }, { status: 400 });
@@ -23,6 +25,9 @@ export async function GET(req: NextRequest) {
     const parsed = new URL(url);
     if (!["http:", "https:"].includes(parsed.protocol)) {
       return NextResponse.json({ error: "URL invalide" }, { status: 400 });
+    }
+    if (BLOCKED.test(parsed.hostname)) {
+      return NextResponse.json({ error: "URL non autorisée" }, { status: 400 });
     }
   } catch {
     return NextResponse.json({ error: "URL invalide" }, { status: 400 });

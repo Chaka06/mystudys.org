@@ -1,11 +1,13 @@
 "use server";
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { sendPush } from "@/lib/push";
 
 async function notify(recipientId: string, senderId: string, type: string, title: string, body: string, resourceType?: string, resourceId?: string) {
   if (recipientId === senderId) return;
   const admin = await createAdminClient();
   await admin.from("notifications").insert({ recipient_id: recipientId, sender_id: senderId, type, title, body, resource_type: resourceType, resource_id: resourceId });
+  await sendPush(recipientId, title, body, resourceType === "post" && resourceId ? `/post/${resourceId}` : "/notifications");
 }
 
 export async function toggleLikeAction(postId: string, liked: boolean) {

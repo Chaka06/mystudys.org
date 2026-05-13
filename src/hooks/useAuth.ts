@@ -5,84 +5,88 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthStore } from "@/stores/authStore";
 import { signOutAction } from "@/app/actions/auth";
 
-// Singleton — l'initialisation auth ne se fait qu'une seule fois
-// même si useAuth est monté par plusieurs composants simultanément
-let authBootstrapped = false;
+// Compteur de référence — plusieurs composants peuvent utiliser useAuth
+// sans que chacun crée sa propre subscription
+let activeHooks = 0;
+let globalSubscription: { unsubscribe: () => void } | null = null;
 
-export function useAuth() {
-  const { user, profile, isLoading, setUser, setProfile, setLoading, reset } = useAuthStore();
-  const mountedRef = useRef(false);
+async function bootstrapAuth() {
+  const supabase = createClient();
+  const { setUser, setProfile, setLoading, reset } = useAuthStore.getState();
 
-  useEffect(() => {
-    // Premier composant à monter → prend en charge le bootstrap
-    if (authBootstrapped) return;
-    authBootstrapped = true;
-    mountedRef.current = true;
+  const { data: { user } } = await supabase.auth.getUser();
 
-    const supabase = createClient();
+  if (user) {
+    setUser(user);
+    const stored = useAuthStore.getState().profile;
+    if (stored && stored.id !== user.id) setProfile(null);
 
-    const initAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!mountedRef.current) return;
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+    setProfile(p);
+  } else {
+    reset();
+  }
+  setLoading(false);
 
-      if (user) {
-        setUser(user);
+  // Une seule subscription globale
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      const { setUser, setProfile, setLoading, reset } = useAuthStore.getState();
 
-        const storedProfile = useAuthStore.getState().profile;
-        if (storedProfile && storedProfile.id !== user.id) setProfile(null);
+      if (session?.user) {
+        setUser(session.user);
+        const stored = useAuthStore.getState().profile;
+        if (stored && stored.id !== session.user.id) setProfile(null);
 
         const { data: p } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", user.id)
+          .eq("id", session.user.id)
           .single();
-
-        if (mountedRef.current) setProfile(p);
-      } else {
-        if (mountedRef.current) reset();
+        setProfile(p);
+      } else if (event === "SIGNED_OUT") {
+        reset();
       }
+      setLoading(false);
+    }
+  );
 
-      if (mountedRef.current) setLoading(false);
-    };
+  globalSubscription = subscription;
+}
 
-    initAuth();
+export function useAuth() {
+  const { user, profile, isLoading } = useAuthStore();
+  const initializedRef = useRef(false);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mountedRef.current) return;
+  useEffect(() => {
+    activeHooks++;
 
-        if (session?.user) {
-          setUser(session.user);
-
-          const storedProfile = useAuthStore.getState().profile;
-          if (storedProfile && storedProfile.id !== session.user.id) setProfile(null);
-
-          const { data: p } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", session.user.id)
-            .single();
-
-          if (mountedRef.current) setProfile(p);
-        } else if (event === "SIGNED_OUT") {
-          reset();
-          authBootstrapped = false; // Permet re-init après logout
-        }
-
-        if (mountedRef.current) setLoading(false);
-      }
-    );
+    // Premier hook à monter — initialise la subscription globale
+    if (!initializedRef.current && !globalSubscription) {
+      initializedRef.current = true;
+      bootstrapAuth();
+    }
 
     return () => {
-      mountedRef.current = false;
-      subscription.unsubscribe();
-      authBootstrapped = false;
+      activeHooks--;
+      // Dernier hook démonté — libère la subscription
+      if (activeHooks === 0 && globalSubscription) {
+        globalSubscription.unsubscribe();
+        globalSubscription = null;
+      }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = async () => {
-    reset();
-    authBootstrapped = false;
+    useAuthStore.getState().reset();
+    if (globalSubscription) {
+      globalSubscription.unsubscribe();
+      globalSubscription = null;
+    }
     await signOutAction();
   };
 
