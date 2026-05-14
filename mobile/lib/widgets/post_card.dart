@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../core/theme.dart';
 import 'app_avatar.dart';
@@ -276,8 +277,19 @@ class _PostCardState extends State<PostCard> {
               child: Text(post.content!, softWrap: true, style: const TextStyle(fontSize: 14, height: 1.5)),
             ),
 
-          // ── Images ────────────────────────────────────────────
-          if (images.isNotEmpty) _ImageGrid(images: images),
+          // ── PDF card (style LinkedIn) ────────────────────────
+          ...post.media.where((m) => m.mediaType == 'pdf').map((pdf) =>
+            _PdfCard(pdf: pdf, isDark: isDark)),
+
+          // ── Images avec lightbox ─────────────────────────────
+          if (images.isNotEmpty)
+            _ImageGrid(
+              images: images,
+              onTap: (index) => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => _ImageLightbox(images: images.map((i) => i.url).toList(), initialIndex: index),
+                fullscreenDialog: true,
+              )),
+            ),
 
           // ── Actions ───────────────────────────────────────────
           Container(
@@ -361,9 +373,110 @@ class _ActionBtn extends StatelessWidget {
   );
 }
 
+// ─── Carte PDF style LinkedIn ─────────────────────────────────────────────────
+
+class _PdfCard extends StatelessWidget {
+  final PostMedia pdf;
+  final bool isDark;
+  const _PdfCard({required this.pdf, required this.isDark});
+
+  String get _name => (pdf.fileName ?? 'Document PDF').replaceAll(RegExp(r'\.[^/.]+$'), '');
+  String? get _size => pdf.fileSize != null ? '${(pdf.fileSize! / 1024 / 1024).toStringAsFixed(1)} MB' : null;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(pdf.url);
+        if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDark ? const Color(0xFF2D3139) : Colors.grey.shade200),
+          color: isDark ? const Color(0xFF1E2025) : Colors.white,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            // Zone aperçu (fond gris avec icône PDF)
+            Container(
+              height: 120,
+              color: isDark ? const Color(0xFF2D3139) : const Color(0xFFF8F9FA),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56, height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.shade100),
+                      ),
+                      child: Icon(Icons.picture_as_pdf, color: Colors.red.shade500, size: 30),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('PDF', style: TextStyle(fontSize: 11, color: Colors.grey.shade400, fontWeight: FontWeight.w600, letterSpacing: 1)),
+                  ],
+                ),
+              ),
+            ),
+            // Pied de carte
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.description_outlined, color: Colors.red.shade500, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                        if (_size != null)
+                          Text('PDF · $_size', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.open_in_new, size: 16, color: Colors.grey.shade400),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Grille d'images cliquable ────────────────────────────────────────────────
+
 class _ImageGrid extends StatelessWidget {
   final List<PostMedia> images;
-  const _ImageGrid({required this.images});
+  final void Function(int index) onTap;
+  const _ImageGrid({required this.images, required this.onTap});
+
+  Widget _img(String url, int index) => GestureDetector(
+    onTap: () => onTap(index),
+    child: CachedNetworkImage(
+      imageUrl: url, fit: BoxFit.cover,
+      placeholder: (_, __) => Container(color: const Color(0xFFF0F0F0)),
+      errorWidget: (_, __, ___) => Container(
+        color: const Color(0xFFF0F0F0),
+        child: const Icon(Icons.broken_image, color: Colors.grey),
+      ),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -371,16 +484,16 @@ class _ImageGrid extends StatelessWidget {
     if (count == 1) {
       return AspectRatio(
         aspectRatio: 16 / 9,
-        child: CachedNetworkImage(imageUrl: images[0].url, fit: BoxFit.cover),
+        child: _img(images[0].url, 0),
       );
     }
     if (count == 2) {
       return SizedBox(
         height: 200,
         child: Row(children: [
-          Expanded(child: CachedNetworkImage(imageUrl: images[0].url, fit: BoxFit.cover)),
+          Expanded(child: _img(images[0].url, 0)),
           const SizedBox(width: 2),
-          Expanded(child: CachedNetworkImage(imageUrl: images[1].url, fit: BoxFit.cover)),
+          Expanded(child: _img(images[1].url, 1)),
         ]),
       );
     }
@@ -388,12 +501,12 @@ class _ImageGrid extends StatelessWidget {
       return SizedBox(
         height: 220,
         child: Row(children: [
-          Expanded(flex: 2, child: CachedNetworkImage(imageUrl: images[0].url, fit: BoxFit.cover)),
+          Expanded(flex: 2, child: _img(images[0].url, 0)),
           const SizedBox(width: 2),
           Expanded(child: Column(children: [
-            Expanded(child: CachedNetworkImage(imageUrl: images[1].url, fit: BoxFit.cover)),
+            Expanded(child: _img(images[1].url, 1)),
             const SizedBox(height: 2),
-            Expanded(child: CachedNetworkImage(imageUrl: images[2].url, fit: BoxFit.cover)),
+            Expanded(child: _img(images[2].url, 2)),
           ])),
         ]),
       );
@@ -404,16 +517,104 @@ class _ImageGrid extends StatelessWidget {
         crossAxisCount: 2, crossAxisSpacing: 2, mainAxisSpacing: 2,
         physics: const NeverScrollableScrollPhysics(), padding: EdgeInsets.zero,
         children: [
-          ...images.take(3).map((img) => CachedNetworkImage(imageUrl: img.url, fit: BoxFit.cover)),
-          Stack(children: [
-            Positioned.fill(child: CachedNetworkImage(imageUrl: images[3].url, fit: BoxFit.cover)),
-            if (count > 4)
-              Positioned.fill(child: Container(
-                color: Colors.black54,
-                child: Center(child: Text('+${count - 4}',
-                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700))),
-              )),
-          ]),
+          ...List.generate(3, (i) => _img(images[i].url, i)),
+          GestureDetector(
+            onTap: () => onTap(3),
+            child: Stack(children: [
+              Positioned.fill(child: CachedNetworkImage(imageUrl: images[3].url, fit: BoxFit.cover)),
+              if (count > 4)
+                Positioned.fill(child: Container(
+                  color: Colors.black54,
+                  child: Center(child: Text('+${count - 4}',
+                    style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700))),
+                )),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Lightbox images plein écran ──────────────────────────────────────────────
+
+class _ImageLightbox extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+  const _ImageLightbox({required this.images, required this.initialIndex});
+
+  @override
+  State<_ImageLightbox> createState() => _ImageLightboxState();
+}
+
+class _ImageLightboxState extends State<_ImageLightbox> {
+  late final PageController _page;
+  late int _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialIndex;
+    _page = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() { _page.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Images avec zoom
+          PageView.builder(
+            controller: _page,
+            itemCount: widget.images.length,
+            onPageChanged: (i) => setState(() => _current = i),
+            itemBuilder: (_, i) => InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4.0,
+              child: Center(
+                child: CachedNetworkImage(
+                  imageUrl: widget.images[i],
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+                  errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white, size: 48),
+                ),
+              ),
+            ),
+          ),
+
+          // Bouton fermer
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    if (widget.images.length > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text('${_current + 1} / ${widget.images.length}',
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
+                      ),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
