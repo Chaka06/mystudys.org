@@ -49,17 +49,39 @@ export function useConversations(userId: string) {
 export function useMessages(conversationId: string, userId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
 
-  // Chargement initial
+  // Chargement initial (50 derniers messages)
   useEffect(() => {
     if (!conversationId) return;
     setLoading(true);
     fetch(`/api/messages/${conversationId}`)
       .then((r) => r.json())
-      .then(({ messages }) => { setMessages(messages ?? []); setLoading(false); })
+      .then(({ messages: msgs, hasMore: more }) => {
+        setMessages(msgs ?? []);
+        setHasMore(more ?? false);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, [conversationId]);
+
+  // Charger les messages plus anciens (scroll vers le haut)
+  const loadMore = useCallback(async () => {
+    if (!messages.length || loadingMore || !hasMore) return;
+    const oldest = messages[0]?.created_at;
+    if (!oldest) return;
+    setLoadingMore(true);
+    try {
+      const { messages: older, hasMore: more } = await fetch(
+        `/api/messages/${conversationId}?before=${encodeURIComponent(oldest)}`
+      ).then((r) => r.json());
+      setMessages((prev) => [...(older ?? []), ...prev]);
+      setHasMore(more ?? false);
+    } catch {}
+    setLoadingMore(false);
+  }, [conversationId, messages, loadingMore, hasMore]);
 
   // Abonnement Realtime Supabase
   useEffect(() => {
@@ -136,5 +158,5 @@ export function useMessages(conversationId: string, userId: string) {
     }
   }, [conversationId, userId]);
 
-  return { messages, loading, sendMessage };
+  return { messages, loading, loadingMore, hasMore, loadMore, sendMessage };
 }

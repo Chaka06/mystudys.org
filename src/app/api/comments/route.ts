@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { sendPush } from "@/lib/push";
-import { isRateLimited } from "@/lib/rateLimit";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
   // Rate limit : 10 commentaires / minute
-  if (isRateLimited(`comments:${user.id}`, 10, 60_000)) {
+  if (await checkRateLimit(`comments:${user.id}`, 10, 60_000)) {
     return NextResponse.json({ error: "Trop de requêtes, réessayez dans une minute" }, { status: 429 });
   }
 

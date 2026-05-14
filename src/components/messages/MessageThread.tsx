@@ -47,7 +47,7 @@ function isSameDay(a: string, b: string) {
 // ─── Composant principal ──────────────────────────────────────────────────────
 export function MessageThread({ conversation }: Props) {
   const { profile } = useAuthStore();
-  const { messages, loading, sendMessage } = useMessages(conversation.id, profile?.id ?? "");
+  const { messages, loading, loadingMore, hasMore, loadMore, sendMessage } = useMessages(conversation.id, profile?.id ?? "");
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -152,6 +152,22 @@ export function MessageThread({ conversation }: Props) {
 
       {/* ── Zone messages ── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1 min-h-0">
+
+        {/* Charger les messages plus anciens */}
+        {hasMore && (
+          <div className="flex justify-center py-2">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="text-xs text-muted-foreground hover:text-brand-orange transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/50 hover:bg-muted"
+            >
+              {loadingMore ? (
+                <div className="h-3 w-3 border border-brand-orange/40 border-t-brand-orange rounded-full animate-spin" />
+              ) : "↑"}
+              {loadingMore ? "Chargement…" : "Voir les messages précédents"}
+            </button>
+          </div>
+        )}
 
         {/* Bandeau premier message */}
         {!conversation.is_active && (

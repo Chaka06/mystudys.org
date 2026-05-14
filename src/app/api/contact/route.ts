@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isRateLimited } from "@/lib/rateLimit";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
   // Rate limit : 3 messages contact / heure par IP
-  if (isRateLimited(`contact:${ip}`, 3, 60 * 60_000)) {
+  if (await checkRateLimit(`contact:${ip}`, 3, 60 * 60_000)) {
     return NextResponse.json({ error: "Trop de messages envoyés, réessayez plus tard" }, { status: 429 });
   }
 

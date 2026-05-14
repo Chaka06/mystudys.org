@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { sendPush } from "@/lib/push";
-import { isRateLimited } from "@/lib/rateLimit";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 async function notify(
   recipientId: string, senderId: string,
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
 
   if (action === "send" && addresseeId) {
     // Rate limit : 20 demandes d'amitié par heure
-    if (isRateLimited(`friend-send:${user.id}`, 20, 3600_000)) {
+    if (await checkRateLimit(`friend-send:${user.id}`, 20, 3600_000)) {
       return NextResponse.json({ error: "Trop de demandes d'amitié. Réessayez plus tard." }, { status: 429 });
     }
     // Vérifier qu'il n'existe pas déjà une amitié dans n'importe quel sens

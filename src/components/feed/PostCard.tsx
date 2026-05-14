@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, memo, lazy, Suspense } from "react";
+import NextImage from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -320,16 +321,18 @@ function ImageGrid({ images }: { images: { url: string }[] }) {
   return (
     <>
       {count === 1 && (
-        <div className="w-full mb-0.5 overflow-hidden max-h-96" onClick={() => open(0)}>
-          <img src={urls[0]} alt="Publication" className="w-full max-h-96 object-cover cursor-pointer hover:brightness-90 transition-[filter]" />
+        <div className="w-full mb-0.5 overflow-hidden max-h-96 relative cursor-pointer" onClick={() => open(0)}>
+          <NextImage src={urls[0]} alt="Publication" width={800} height={600}
+            className="w-full max-h-96 object-cover hover:brightness-90 transition-[filter]"
+            loading="lazy" sizes="(max-width: 768px) 100vw, 640px" />
         </div>
       )}
 
       {count === 2 && (
         <div className="grid grid-cols-2 gap-0.5 mb-0.5 h-56">
           {urls.map((url, i) => (
-            <div key={i} className="overflow-hidden" onClick={() => open(i)}>
-              <img src={url} alt={`Image ${i + 1}`} className={imgClass} />
+            <div key={i} className="overflow-hidden relative" onClick={() => open(i)}>
+              <NextImage src={url} alt={`Image ${i + 1}`} fill className={imgClass} loading="lazy" sizes="320px" />
             </div>
           ))}
         </div>
@@ -337,14 +340,14 @@ function ImageGrid({ images }: { images: { url: string }[] }) {
 
       {count === 3 && (
         <div className="grid grid-cols-2 gap-0.5 mb-0.5 h-64">
-          <div className="overflow-hidden row-span-2" onClick={() => open(0)}>
-            <img src={urls[0]} alt="Image 1" className={imgClass} />
+          <div className="overflow-hidden row-span-2 relative" onClick={() => open(0)}>
+            <NextImage src={urls[0]} alt="Image 1" fill className={imgClass} loading="lazy" sizes="320px" />
           </div>
-          <div className="overflow-hidden" onClick={() => open(1)}>
-            <img src={urls[1]} alt="Image 2" className={imgClass} />
+          <div className="overflow-hidden relative" onClick={() => open(1)}>
+            <NextImage src={urls[1]} alt="Image 2" fill className={imgClass} loading="lazy" sizes="160px" />
           </div>
-          <div className="overflow-hidden" onClick={() => open(2)}>
-            <img src={urls[2]} alt="Image 3" className={imgClass} />
+          <div className="overflow-hidden relative" onClick={() => open(2)}>
+            <NextImage src={urls[2]} alt="Image 3" fill className={imgClass} loading="lazy" sizes="160px" />
           </div>
         </div>
       )}
@@ -353,10 +356,13 @@ function ImageGrid({ images }: { images: { url: string }[] }) {
         <div className="grid grid-cols-2 gap-0.5 mb-0.5 h-56">
           {urls.slice(0, 4).map((url, i) => (
             <div key={i} className="relative overflow-hidden" onClick={() => open(i)}>
-              <img
+              <NextImage
                 src={url}
                 alt={`Image ${i + 1}`}
+                fill
                 className={`${imgClass} ${i === 3 && count > 4 ? "brightness-50" : ""}`}
+                loading="lazy"
+                sizes="320px"
               />
               {i === 3 && count > 4 && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

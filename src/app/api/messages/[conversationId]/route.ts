@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { isRateLimited } from "@/lib/rateLimit";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 // GET — messages d'une conversation
 export async function GET(req: NextRequest, { params }: { params: Promise<{ conversationId: string }> }) {
@@ -13,22 +13,40 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ conv
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!UUID.test(conversationId)) return NextResponse.json({ error: "ID invalide" }, { status: 400 });
 
-  const { data: messages } = await supabase
+  const url = new URL(req.url);
+  const before = url.searchParams.get("before"); // cursor : charger messages avant cet ID
+  const PAGE = 50; // 50 messages par page
+
+  let query = supabase
     .from("messages")
     .select("*, sender:profiles(id,username,full_name,avatar_url)")
     .eq("conversation_id", conversationId)
     .eq("is_deleted", false)
-    .order("created_at", { ascending: true })
-    .limit(100);
+    .order("created_at", { ascending: false }) // Dernier en premier pour pagination
+    .limit(PAGE);
 
-  // Marquer comme lus via admin (RLS messages_update_own ne permet qu'à l'auteur de modifier)
+  // Cursor-based pagination : charger les messages AVANT un timestamp donné
+  if (before) {
+    query = query.lt("created_at", before);
+  }
+
+  const { data: raw } = await query;
+
+  // Remettre en ordre chronologique pour l'affichage
+  const messages = (raw ?? []).reverse();
+
+  // Marquer comme lus via admin
   const admin = await createAdminClient();
   await admin.from("messages").update({ is_read: true })
     .eq("conversation_id", conversationId)
     .neq("sender_id", user.id)
     .eq("is_read", false);
 
-  return NextResponse.json({ messages: messages ?? [] });
+  return NextResponse.json({
+    messages,
+    hasMore: (raw ?? []).length === PAGE, // Il y a d'autres messages à charger
+    oldestTimestamp: messages[0]?.created_at ?? null,
+  });
 }
 
 // POST — envoyer un message
@@ -38,7 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ con
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
   // Rate limit : 30 messages / minute
-  if (isRateLimited(`messages:${user.id}`, 30, 60_000)) {
+  if (await checkRateLimit(`messages:${user.id}`, 30, 60_000)) {
     return NextResponse.json({ error: "Trop de messages, attendez un moment" }, { status: 429 });
   }
 
