@@ -7,6 +7,16 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
 import '../core/theme.dart';
 import 'app_avatar.dart';
+import '../features/profile/profile_screen.dart';
+
+// Wrapper pour naviguer vers ProfileScreen depuis PostCard
+// (évite l'import circulaire — PostCard est utilisé dans ProfileScreen)
+class _ProfileScreenWrapper extends StatelessWidget {
+  final String username;
+  const _ProfileScreenWrapper({required this.username});
+  @override
+  Widget build(BuildContext context) => ProfileScreen(username: username);
+}
 
 class PostCard extends StatefulWidget {
   final Post post;
@@ -33,6 +43,17 @@ class _PostCardState extends State<PostCard> {
     _liked = widget.post.likedByUser;
     _likeCount = widget.post.likeCount;
     _saved = widget.post.savedByUser;
+  }
+
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Resync si le post change (refresh du feed) sans changer de widget
+    if (oldWidget.post.id != widget.post.id) {
+      _liked = widget.post.likedByUser;
+      _likeCount = widget.post.likeCount;
+      _saved = widget.post.savedByUser;
+    }
   }
 
   Future<void> _toggleLike() async {
@@ -127,7 +148,13 @@ class _PostCardState extends State<PostCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    if (author?.username != null) {
+                      Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+                        builder: (_) => _ProfileScreenWrapper(username: author!.username),
+                      ));
+                    }
+                  },
                   child: AppAvatar(url: author?.avatarUrl, initials: author?.initials ?? 'U', size: 40),
                 ),
                 const SizedBox(width: 10),
@@ -135,17 +162,26 @@ class _PostCardState extends State<PostCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(children: [
-                        Flexible(
-                          child: Text(author?.fullName ?? 'Utilisateur',
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                            overflow: TextOverflow.ellipsis),
-                        ),
-                        if (author?.isVerified == true) ...[
-                          const SizedBox(width: 4),
-                          const Icon(Icons.verified, color: kOrange, size: 14),
-                        ],
-                      ]),
+                      GestureDetector(
+                        onTap: () {
+                          if (author?.username != null) {
+                            Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+                              builder: (_) => _ProfileScreenWrapper(username: author!.username),
+                            ));
+                          }
+                        },
+                        child: Row(children: [
+                          Flexible(
+                            child: Text(author?.fullName ?? 'Utilisateur',
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                              overflow: TextOverflow.ellipsis),
+                          ),
+                          if (author?.isVerified == true) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.verified, color: kOrange, size: 14),
+                          ],
+                        ]),
+                      ),
                       const SizedBox(height: 1),
                       Text(
                         [
@@ -285,7 +321,7 @@ class _PostCardState extends State<PostCard> {
           if (images.isNotEmpty)
             _ImageGrid(
               images: images,
-              onTap: (index) => Navigator.push(context, MaterialPageRoute(
+              onTap: (index) => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
                 builder: (_) => _ImageLightbox(images: images.map((i) => i.url).toList(), initialIndex: index),
                 fullscreenDialog: true,
               )),
@@ -394,31 +430,36 @@ class _PdfCard extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? const Color(0xFF2D3139) : Colors.grey.shade200),
-          color: isDark ? const Color(0xFF1E2025) : Colors.white,
+          border: Border.all(color: isDark ? const Color(0xFF2D3139) : Colors.grey.shade300),
+          color: isDark ? const Color(0xFF2D3139) : const Color(0xFFF8F9FA),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            // Zone aperçu (fond gris avec icône PDF)
+            // Zone aperçu avec dégradé rouge bien visible
             Container(
-              height: 120,
-              color: isDark ? const Color(0xFF2D3139) : const Color(0xFFF8F9FA),
+              height: 130,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.red.shade700, Colors.red.shade400],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 56, height: 56,
+                      width: 60, height: 60,
                       decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.shade100),
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: Icon(Icons.picture_as_pdf, color: Colors.red.shade500, size: 30),
+                      child: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 34),
                     ),
                     const SizedBox(height: 8),
-                    Text('PDF', style: TextStyle(fontSize: 11, color: Colors.grey.shade400, fontWeight: FontWeight.w600, letterSpacing: 1)),
+                    const Text('Document PDF', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                   ],
                 ),
               ),
@@ -431,24 +472,25 @@ class _PdfCard extends StatelessWidget {
                   Container(
                     width: 36, height: 36,
                     decoration: BoxDecoration(
-                      color: Colors.red.shade50,
+                      color: Colors.red.shade100,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.description_outlined, color: Colors.red.shade500, size: 20),
+                    child: Icon(Icons.description_outlined, color: Colors.red.shade700, size: 20),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(_name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        Text(_name,
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
-                        if (_size != null)
-                          Text('PDF · $_size', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                        Text('PDF${_size != null ? ' · $_size' : ''} · Appuyer pour ouvrir',
+                          style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                       ],
                     ),
                   ),
-                  Icon(Icons.open_in_new, size: 16, color: Colors.grey.shade400),
+                  Icon(Icons.open_in_new, size: 16, color: Colors.red.shade400),
                 ],
               ),
             ),

@@ -158,9 +158,11 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                             ],
                           ],
                         ),
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => ChatScreen(conversation: conv)),
+                        onTap: () => Navigator.of(context, rootNavigator: true).push(
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(conversation: conv),
+                            fullscreenDialog: true,
+                          ),
                         ).then((_) => _load()),
                       );
                     },

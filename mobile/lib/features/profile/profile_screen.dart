@@ -106,7 +106,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .select('*, p1:profiles!conversations_participant_1_fkey(id,username,full_name,first_name,avatar_url,is_active), p2:profiles!conversations_participant_2_fkey(id,username,full_name,first_name,avatar_url,is_active)')
           .single();
     }
-    if (mounted) Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(conversation: Conversation.fromJson(conv, myId))));
+    if (mounted) Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+      builder: (_) => ChatScreen(conversation: Conversation.fromJson(conv, myId)),
+      fullscreenDialog: true,
+    ));
   }
 
   @override
