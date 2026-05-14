@@ -331,36 +331,85 @@ class _FriendButtonState extends State<_FriendButton> {
   Widget build(BuildContext context) {
     if (_loading) return const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: kOrange, strokeWidth: 2));
 
+    // none → Ajouter en ami
     if (widget.status == null) {
       return ElevatedButton.icon(
         onPressed: () => _act('send', addresseeId: widget.profileId),
         icon: const Icon(Icons.person_add, size: 16),
-        label: const Text('Ajouter'),
-        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+        label: const Text('Ajouter en ami'),
+        style: ElevatedButton.styleFrom(backgroundColor: kOrange, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
       );
     }
+
+    // accepted → Dropdown "Amis" avec option Retirer
     if (widget.status == 'accepted') {
-      return OutlinedButton.icon(
-        onPressed: () => _act('remove', fsId: widget.friendshipId),
-        icon: const Icon(Icons.people, size: 16, color: kGreen),
-        label: const Text('Amis', style: TextStyle(color: kGreen)),
-        style: OutlinedButton.styleFrom(side: const BorderSide(color: kGreen), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+      return PopupMenuButton<String>(
+        onSelected: (v) {
+          if (v == 'remove') _act('remove', fsId: widget.friendshipId);
+        },
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'remove', child: Row(children: [
+            const Icon(Icons.person_remove, size: 16, color: kOrange),
+            const SizedBox(width: 8),
+            const Text('Retirer des amis', style: TextStyle(fontSize: 13)),
+          ])),
+        ],
+        child: OutlinedButton.icon(
+          onPressed: null,
+          icon: const Icon(Icons.people, size: 16, color: kGreen),
+          label: Row(mainAxisSize: MainAxisSize.min, children: const [
+            Text('Amis', style: TextStyle(color: kGreen)),
+            SizedBox(width: 4),
+            Icon(Icons.keyboard_arrow_down, size: 16, color: kGreen),
+          ]),
+          style: OutlinedButton.styleFrom(side: const BorderSide(color: kGreen), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+        ),
       );
     }
+
+    // pending_sent → Badge "Demande envoyée" + bouton Annuler
     if (widget.status == 'pending' && widget.iAmRequester) {
-      return OutlinedButton(
-        onPressed: () => _act('reject', fsId: widget.friendshipId),
-        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-        child: const Text('Demande envoyée'),
-      );
+      return Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.schedule, size: 14, color: kOrange),
+            const SizedBox(width: 4),
+            const Text('Demande envoyée', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ]),
+        ),
+        const SizedBox(width: 6),
+        TextButton(
+          onPressed: () => _act('reject', fsId: widget.friendshipId),
+          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8)),
+          child: const Text('Annuler', style: TextStyle(fontSize: 12, color: Colors.grey)),
+        ),
+      ]);
     }
+
+    // pending_received → Accepter + Refuser côte à côte
     if (widget.status == 'pending' && !widget.iAmRequester) {
-      return ElevatedButton(
-        onPressed: () => _act('accept', fsId: widget.friendshipId),
-        style: ElevatedButton.styleFrom(backgroundColor: kGreen, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
-        child: const Text('Accepter'),
-      );
+      return Row(mainAxisSize: MainAxisSize.min, children: [
+        TextButton(
+          onPressed: () => _act('reject', fsId: widget.friendshipId),
+          style: TextButton.styleFrom(foregroundColor: Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8)),
+          child: const Text('Refuser', style: TextStyle(fontSize: 12)),
+        ),
+        const SizedBox(width: 4),
+        ElevatedButton(
+          onPressed: () => _act('accept', fsId: widget.friendshipId),
+          style: ElevatedButton.styleFrom(backgroundColor: kGreen, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+          child: const Text('Accepter', style: TextStyle(fontSize: 12)),
+        ),
+      ]);
     }
+
     return const SizedBox.shrink();
   }
 }

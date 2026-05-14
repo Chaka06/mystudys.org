@@ -5,6 +5,7 @@ import '../../core/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../widgets/app_avatar.dart';
+import 'profile_editor_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -66,7 +67,7 @@ class SettingsScreen extends StatelessWidget {
           _SettingsTile(
             icon: Icons.person_outline,
             title: 'Modifier le profil',
-            onTap: () {},
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileEditorScreen())),
           ),
           _SettingsTile(
             icon: Icons.lock_outline,

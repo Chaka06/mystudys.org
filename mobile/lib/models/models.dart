@@ -6,6 +6,7 @@ class Profile {
   final String? avatarUrl;
   final String? coverUrl;
   final String? bio;
+  final String? phone;
   final String? institution;
   final String? fieldOfStudy;
   final String? academicLevel;
@@ -28,6 +29,7 @@ class Profile {
     this.avatarUrl,
     this.coverUrl,
     this.bio,
+    this.phone,
     this.institution,
     this.fieldOfStudy,
     this.academicLevel,
@@ -51,6 +53,7 @@ class Profile {
         avatarUrl: j['avatar_url'],
         coverUrl: j['cover_url'],
         bio: j['bio'],
+        phone: j['phone'],
         institution: j['institution'],
         fieldOfStudy: j['field_of_study'],
         academicLevel: j['academic_level'],

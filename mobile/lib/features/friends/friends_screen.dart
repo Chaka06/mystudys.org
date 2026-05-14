@@ -14,6 +14,7 @@ class FriendsScreen extends StatefulWidget {
 class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProviderStateMixin {
   final _sb = Supabase.instance.client;
   late final TabController _tabs;
+  late RealtimeChannel _channel;
   List<Friendship> _friends = [];
   List<Friendship> _requests = [];
   List<Profile> _suggestions = [];
@@ -23,6 +24,33 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    _load();
+    _setupRealtime();
+  }
+
+  void _setupRealtime() {
+    final userId = _sb.auth.currentUser?.id;
+    if (userId == null) return;
+    _channel = _sb.channel('friends-screen-$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'friendships',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'requester_id', value: userId),
+          callback: (_) => _load(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'friendships',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'addressee_id', value: userId),
+          callback: (_) => _load(),
+        )
+        .subscribe();
+  }
+
+  Future<void> _removeFriend(String friendshipId) async {
+    await _sb.from('friendships').delete().eq('id', friendshipId);
     _load();
   }
 
@@ -78,6 +106,7 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
 
   @override
   void dispose() {
+    _channel.unsubscribe();
     _tabs.dispose();
     super.dispose();
   }
@@ -104,7 +133,11 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
           : TabBarView(
               controller: _tabs,
               children: [
-                _FriendsList(friends: _friends, onTap: (username) => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(username: username)))),
+                _FriendsList(
+                  friends: _friends,
+                  onTap: (username) => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(username: username))),
+                  onRemove: _removeFriend,
+                ),
                 _RequestsList(requests: _requests, onRespond: _respond),
                 _SuggestionsList(suggestions: _suggestions, onAdd: _sendRequest, onTap: (username) => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(username: username)))),
               ],
@@ -116,7 +149,8 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
 class _FriendsList extends StatelessWidget {
   final List<Friendship> friends;
   final void Function(String username) onTap;
-  const _FriendsList({required this.friends, required this.onTap});
+  final void Function(String friendshipId) onRemove;
+  const _FriendsList({required this.friends, required this.onTap, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +167,22 @@ class _FriendsList extends StatelessWidget {
           title: Text(other?.fullName ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           subtitle: Text('@${other?.username ?? ''}', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           onTap: () => onTap(other?.username ?? ''),
-          trailing: Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade400),
+          trailing: IconButton(
+            icon: Icon(Icons.person_remove_outlined, size: 20, color: Colors.grey.shade400),
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text('Retirer ${other?.firstName ?? 'cet ami'} ?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                    TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Retirer', style: TextStyle(color: Colors.red))),
+                  ],
+                ),
+              );
+              if (confirm == true) onRemove(f.id);
+            },
+          ),
         );
       },
     );

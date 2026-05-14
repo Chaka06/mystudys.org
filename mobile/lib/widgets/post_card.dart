@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -91,6 +92,12 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  String _formatEventDate(String iso) {
+    final dt = DateTime.parse(iso).toLocal();
+    const months = ['jan.','fév.','mar.','avr.','mai','juin','juil.','aoû.','sep.','oct.','nov.','déc.'];
+    return '${dt.day} ${months[dt.month-1]} ${dt.year} à ${dt.hour.toString().padLeft(2,'0')}:${dt.minute.toString().padLeft(2,'0')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
@@ -99,6 +106,7 @@ class _PostCardState extends State<PostCard> {
     final cardBg = isDark ? const Color(0xFF1E2025) : Colors.white;
     final border = isDark ? const Color(0xFF2D3139) : const Color(0xFFE5E7EB);
     final images = post.media.where((m) => m.mediaType == 'image').toList();
+    final isOwner = _sb.auth.currentUser?.id == post.authorId;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
@@ -161,6 +169,45 @@ class _PostCardState extends State<PostCard> {
                     );
                   }),
                 ],
+                // Menu 3-points
+                PopupMenuButton<String>(
+                  icon: Icon(Icons.more_horiz, size: 18, color: Colors.grey.shade400),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  itemBuilder: (_) => [
+                    if (isOwner) PopupMenuItem(value: 'delete', child: Row(children: [
+                      Icon(Icons.delete_outline, size: 16, color: Colors.red.shade500),
+                      const SizedBox(width: 8),
+                      Text('Supprimer', style: TextStyle(color: Colors.red.shade500, fontSize: 13)),
+                    ])),
+                    const PopupMenuItem(value: 'report', child: Row(children: [
+                      Icon(Icons.flag_outlined, size: 16),
+                      SizedBox(width: 8),
+                      Text('Signaler', style: TextStyle(fontSize: 13)),
+                    ])),
+                  ],
+                  onSelected: (v) async {
+                    if (v == 'delete') {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Supprimer ?'),
+                          content: const Text('Cette publication sera supprimée définitivement.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+                            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Supprimer', style: TextStyle(color: Colors.red))),
+                          ],
+                        ),
+                      );
+                      if (confirm == true && mounted) {
+                        await _sb.from('posts').update({'is_deleted': true}).eq('id', post.id).eq('author_id', _sb.auth.currentUser?.id ?? '');
+                        widget.onDeleted?.call();
+                      }
+                    } else if (v == 'report') {
+                      await _sb.from('post_reports').insert({'post_id': post.id, 'reporter_id': _sb.auth.currentUser?.id, 'reason': 'Contenu inapproprié'});
+                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Publication signalée, merci !')));
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -190,11 +237,43 @@ class _PostCardState extends State<PostCard> {
               ),
             ),
 
+          // ── Métadonnées événement ─────────────────────────────
+          if (post.postType == 'event' && (post.eventDate != null || post.eventLocation != null))
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (post.eventDate != null) Row(children: [
+                    Icon(Icons.event, color: Colors.blue.shade600, size: 13),
+                    const SizedBox(width: 4),
+                    Flexible(child: Text(_formatEventDate(post.eventDate!),
+                      style: TextStyle(fontSize: 12, color: Colors.blue.shade700))),
+                  ]),
+                  if (post.eventLocation != null) ...[
+                    const SizedBox(height: 3),
+                    Row(children: [
+                      Icon(Icons.location_on, color: Colors.grey.shade500, size: 13),
+                      const SizedBox(width: 4),
+                      Flexible(child: Text(post.eventLocation!,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500))),
+                    ]),
+                  ],
+                ],
+              ),
+            ),
+
           // ── Contenu texte ─────────────────────────────────────
           if (post.content != null && post.content!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-              child: Text(post.content!, style: const TextStyle(fontSize: 14, height: 1.5)),
+              child: Text(post.content!, softWrap: true, style: const TextStyle(fontSize: 14, height: 1.5)),
             ),
 
           // ── Images ────────────────────────────────────────────
@@ -223,8 +302,14 @@ class _PostCardState extends State<PostCard> {
                 ),
                 _ActionBtn(
                   icon: Icons.share_outlined,
-                  onTap: () {},
                   hoverColor: kGreen.withValues(alpha: 0.1),
+                  onTap: () async {
+                    const baseUrl = 'https://www.mystudys.org/post/';
+                    await Clipboard.setData(ClipboardData(text: '$baseUrl${widget.post.id}'));
+                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Lien copié !'), duration: Duration(seconds: 2)),
+                    );
+                  },
                 ),
                 const Spacer(),
                 GestureDetector(
