@@ -21,7 +21,11 @@ import { formatMessageTime, getInitials, cn } from "@/lib/utils";
 import type { Conversation } from "@/types/database.types";
 import { toast } from "sonner";
 
-interface Props { conversation: Conversation; }
+interface Props {
+  conversation: Conversation;
+  // currentUserId passé depuis le serveur — fiable même avant hydratation Zustand
+  currentUserId?: string;
+}
 
 type UploadState = "idle" | "uploading" | "error";
 
@@ -45,9 +49,13 @@ function isSameDay(a: string, b: string) {
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
-export function MessageThread({ conversation }: Props) {
+export function MessageThread({ conversation, currentUserId: currentUserIdProp }: Props) {
   const { profile } = useAuthStore();
-  const { messages, loading, loadingMore, hasMore, loadMore, sendMessage } = useMessages(conversation.id, profile?.id ?? "");
+  // Source de vérité : prop serveur en priorité, store Zustand en fallback
+  // Sans ça, si profile=null (hydratation en cours), isMine = toujours false
+  // → tous les messages apparaissent comme reçus
+  const myId = currentUserIdProp ?? profile?.id ?? "";
+  const { messages, loading, loadingMore, hasMore, loadMore, sendMessage } = useMessages(conversation.id, myId);
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -210,7 +218,8 @@ export function MessageThread({ conversation }: Props) {
         )}
 
         {!loading && messages.filter(Boolean).map((msg, i, arr) => {
-          const isMine     = msg.sender_id === profile?.id;
+          // isMine basé sur myId (prop serveur ou store) — corrige l'attribution visuelle
+          const isMine     = msg.sender_id === myId;
           const prev       = arr[i - 1];
           const next       = arr[i + 1];
           const isFirst    = !prev || prev.sender_id !== msg.sender_id;

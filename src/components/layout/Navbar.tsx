@@ -14,11 +14,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useNotificationStore } from "@/stores/notificationStore";
 import { getInitials } from "@/lib/utils";
 
 export function Navbar() {
   const { profile, signOut } = useAuth();
   const { unreadCount } = useNotifications();
+  const { unreadMessages } = useNotificationStore();
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -80,10 +82,15 @@ export function Navbar() {
             </Link>
           </Button>
 
-          {/* Messages */}
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/messages">
+          {/* Messages avec badge non lus */}
+          <Button variant="ghost" size="icon" className="relative" asChild>
+            <Link href="/messages" aria-label={unreadMessages > 0 ? `${unreadMessages} message(s) non lu(s)` : "Messages"}>
               <MessageCircle className="h-5 w-5" />
+              {unreadMessages > 0 && (
+                <Badge variant="notification" className="absolute -top-0.5 -right-0.5">
+                  {unreadMessages > 99 ? "99+" : unreadMessages}
+                </Badge>
+              )}
             </Link>
           </Button>
 

@@ -41,7 +41,22 @@ function buildConversationsMock(options: { user?: any; conversations?: any[] } =
   const convs = options.conversations ?? [mockConversation()];
   vi.mocked(createClient).mockResolvedValue({
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user: options.user !== undefined ? options.user : { id: "user-1" } } }) },
-    from: vi.fn().mockReturnValue({
+    from: vi.fn((table: string) => {
+      // Table messages : requête pour les unread_count
+      if (table === "messages") {
+        const msgChain: any = {
+          select: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          then: (resolve: any) => Promise.resolve({ data: [] }).then(resolve),
+        };
+        Object.keys(msgChain).forEach((k) => {
+          if (k !== "then") msgChain[k].mockReturnValue(msgChain);
+        });
+        return { select: vi.fn().mockReturnValue(msgChain) };
+      }
+      return {
       select: vi.fn().mockReturnValue({
         or: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: convs }),
@@ -52,6 +67,7 @@ function buildConversationsMock(options: { user?: any; conversations?: any[] } =
           single: vi.fn().mockResolvedValue({ data: { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" } }),
         }),
       }),
+      };
     }),
   } as any);
 }

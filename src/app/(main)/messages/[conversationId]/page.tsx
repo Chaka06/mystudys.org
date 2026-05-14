@@ -44,7 +44,9 @@ export default async function ConversationPage({ params }: Props) {
 
       {/* Panneau droit : fil de discussion */}
       <div className="flex-1 flex flex-col min-w-0">
-        <MessageThread conversation={enriched} />
+        {/* currentUserId passé depuis le serveur — source de vérité fiable
+            (évite la dépendance au store Zustand qui peut ne pas être hydraté) */}
+        <MessageThread conversation={enriched} currentUserId={user.id} />
       </div>
     </div>
   );

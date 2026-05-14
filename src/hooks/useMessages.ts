@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useNotificationStore } from "@/stores/notificationStore";
 import type { Conversation, Message } from "@/types/database.types";
 
 export function useConversations(userId: string) {
@@ -52,8 +53,11 @@ export function useMessages(conversationId: string, userId: string) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const { setUnreadMessages } = useNotificationStore();
 
   // Chargement initial (50 derniers messages)
+  // Quand on ouvre une conversation, les messages sont marqués lus côté API
+  // → on recalcule le total des non lus depuis toutes les conversations
   useEffect(() => {
     if (!conversationId) return;
     setLoading(true);
@@ -63,9 +67,19 @@ export function useMessages(conversationId: string, userId: string) {
         setMessages(msgs ?? []);
         setHasMore(more ?? false);
         setLoading(false);
+        // Recalculer le badge total depuis l'API conversations
+        fetch("/api/messages")
+          .then((r) => r.json())
+          .then(({ conversations }) => {
+            const total = (conversations ?? []).reduce(
+              (sum: number, c: any) => sum + (c.unread_count ?? 0), 0
+            );
+            setUnreadMessages(total);
+          })
+          .catch(() => {});
       })
       .catch(() => setLoading(false));
-  }, [conversationId]);
+  }, [conversationId, setUnreadMessages]);
 
   // Charger les messages plus anciens (scroll vers le haut)
   const loadMore = useCallback(async () => {

@@ -5,18 +5,22 @@ interface NotificationState {
   notifications: Notification[];
   unreadCount: number;
   friendRequestCount: number;
+  unreadMessages: number; // total messages non lus dans toutes les conversations
   setNotifications: (notifications: Notification[]) => void;
   addNotification: (notification: Notification) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   setUnreadCount: (count: number) => void;
   setFriendRequestCount: (count: number) => void;
+  setUnreadMessages: (count: number) => void;
+  incrementUnreadMessages: () => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
   notifications: [],
   unreadCount: 0,
   friendRequestCount: 0,
+  unreadMessages: 0,
   setNotifications: (notifications) =>
     set({
       notifications,
@@ -41,4 +45,6 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     })),
   setUnreadCount: (count) => set({ unreadCount: count }),
   setFriendRequestCount: (count) => set({ friendRequestCount: count }),
+  setUnreadMessages: (count) => set({ unreadMessages: count }),
+  incrementUnreadMessages: () => set((s) => ({ unreadMessages: s.unreadMessages + 1 })),
 }));

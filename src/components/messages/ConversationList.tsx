@@ -110,8 +110,9 @@ export function ConversationList({ userId, activeId }: ConversationListProps) {
 function ConversationItem({ conv, active }: { conv: Conversation; active: boolean }) {
   const other = conv.other_participant;
 
-  // Simuler "non lu" si la conversation n'est pas encore active (premier message non répondu)
-  const isUnread = !conv.is_active && !!conv.last_message;
+  // Vrai compteur de messages non lus depuis l'API
+  const unreadCount = conv.unread_count ?? 0;
+  const isUnread = unreadCount > 0;
 
   return (
     <Link
@@ -176,10 +177,10 @@ function ConversationItem({ conv, active }: { conv: Conversation; active: boolea
             }
           </p>
 
-          {/* Badge non lu */}
+          {/* Badge non lu avec vrai compteur */}
           {isUnread && (
-            <Badge variant="notification" className="h-4 w-4 p-0 flex items-center justify-center shrink-0 text-[9px]">
-              1
+            <Badge variant="notification" className="h-5 min-w-5 px-1 flex items-center justify-center shrink-0 text-[10px] font-bold">
+              {unreadCount > 99 ? "99+" : unreadCount}
             </Badge>
           )}
 

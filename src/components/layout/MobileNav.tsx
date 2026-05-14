@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotificationStore } from "@/stores/notificationStore";
+// unreadMessages importé directement depuis le store
 
 const navItems = [
   { href: "/feed", icon: Home, label: "Accueil" },
@@ -21,7 +22,7 @@ export function MobileNav() {
   const pathname = usePathname();
   const { unreadCount } = useNotifications();
   const { profile } = useAuth();
-  const { friendRequestCount: friendRequests } = useNotificationStore();
+  const { friendRequestCount: friendRequests, unreadMessages } = useNotificationStore();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
@@ -47,14 +48,22 @@ export function MobileNav() {
                       !item.highlight && active ? "text-brand-orange" : !item.highlight ? "text-muted-foreground" : ""
                     }`}
                   />
+                  {/* Badge notifications (cloche) */}
                   {item.badge && unreadCount > 0 && (
                     <Badge variant="notification" className="absolute -top-1 -right-1 min-w-[16px] h-4 text-[9px]">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </Badge>
                   )}
+                  {/* Badge amis */}
                   {item.href === "/friends" && friendRequests > 0 && (
                     <Badge variant="notification" className="absolute -top-1 -right-1 min-w-[16px] h-4 text-[9px]">
                       {friendRequests}
+                    </Badge>
+                  )}
+                  {/* Badge messages non lus */}
+                  {item.href === "/messages" && unreadMessages > 0 && (
+                    <Badge variant="notification" className="absolute -top-1 -right-1 min-w-[16px] h-4 text-[9px]">
+                      {unreadMessages > 99 ? "99+" : unreadMessages}
                     </Badge>
                   )}
                 </div>
