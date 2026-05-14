@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
 
 class AuthProvider extends ChangeNotifier {
   final _supabase = Supabase.instance.client;
+  StreamSubscription? _authSubscription; // Stockée pour cancel dans dispose
 
   User? _user;
   Profile? _profile;
@@ -19,18 +21,20 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
+    // currentUser est synchrone mais Supabase Flutter le restaure depuis le cache local
     _user = _supabase.auth.currentUser;
     if (_user != null) await _loadProfile();
     _loading = false;
     notifyListeners();
 
-    _supabase.auth.onAuthStateChange.listen((data) async {
+    _authSubscription = _supabase.auth.onAuthStateChange.listen((data) async {
       _user = data.session?.user;
       if (_user != null) {
         await _loadProfile();
       } else {
         _profile = null;
       }
+      _loading = false;
       notifyListeners();
     });
   }
@@ -49,6 +53,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> refreshProfile() => _loadProfile();
+  // Alias public pour les screens
+  Future<void> fetchProfile() => _loadProfile();
 
   Future<String?> signOut() async {
     try {
@@ -60,5 +66,11 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       return e.toString();
     }
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel(); // Évite les fuites mémoire
+    super.dispose();
   }
 }
