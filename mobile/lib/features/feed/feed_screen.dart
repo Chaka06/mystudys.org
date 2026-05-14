@@ -93,15 +93,15 @@ class _FeedScreenState extends State<FeedScreen> {
             icon: const Icon(Icons.search_rounded),
             onPressed: () => context.push('/search'),
           ),
-          // Icône Messages avec badge non-lus
+          // Icône Notifications avec badge non-lus
           Stack(
             clipBehavior: Clip.none,
             children: [
               IconButton(
-                icon: const Icon(Icons.chat_bubble_outline_rounded),
-                onPressed: () => context.go('/messages'),
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () => context.go('/notifications'),
               ),
-              if (notifProvider.unreadMessages > 0)
+              if (notifProvider.unreadCount > 0)
                 Positioned(
                   top: 6, right: 6,
                   child: Container(
@@ -109,7 +109,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     decoration: const BoxDecoration(color: kOrange, shape: BoxShape.circle),
                     child: Center(
                       child: Text(
-                        notifProvider.unreadMessages > 9 ? '9+' : '${notifProvider.unreadMessages}',
+                        notifProvider.unreadCount > 9 ? '9+' : '${notifProvider.unreadCount}',
                         style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
                       ),
                     ),
