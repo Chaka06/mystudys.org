@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, memo } from "react";
+import { useState, memo, lazy, Suspense } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Heart, MessageCircle, Share2, Bookmark, MoreHorizontal,
   FileText, Calendar, MapPin, ExternalLink, GraduationCap,
@@ -12,15 +12,17 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { LinkPreviewCard, extractFirstUrl } from "@/components/ui/LinkPreviewCard";
-import { PdfThumbnail } from "@/components/ui/PdfThumbnail";
 import { formatRelativeTime, getInitials, cn } from "@/lib/utils";
 import { ACADEMIC_LEVEL_LABELS, POST_TYPE_LABELS, type Post } from "@/types/database.types";
 import { useAuthStore } from "@/stores/authStore";
 import { toggleLikeAction, toggleSaveAction, deletePostAction, reportPostAction } from "@/app/actions/interactions";
 import { toast } from "sonner";
-import { CommentSection } from "./CommentSection";
+
+// Chargement différé — ces composants sont lourds et pas critiques au premier rendu
+const CommentSection = lazy(() => import("./CommentSection").then(m => ({ default: m.CommentSection })));
+const ImageLightbox  = lazy(() => import("@/components/ui/ImageLightbox").then(m => ({ default: m.ImageLightbox })));
+const PdfThumbnail   = lazy(() => import("@/components/ui/PdfThumbnail").then(m => ({ default: m.PdfThumbnail })));
 
 interface PostCardProps {
   post: Post;
@@ -96,11 +98,7 @@ export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: Pos
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <div className="animate-fade-in">
       <Card className="overflow-hidden hover:shadow-md transition-shadow duration-200">
         {/* Header */}
         <div className="flex items-start justify-between p-4 pb-3">
@@ -242,11 +240,10 @@ export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: Pos
         {/* Actions */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border/60">
           <div className="flex items-center gap-1">
-            <motion.button
-              whileTap={{ scale: 0.85 }}
+            <button
               onClick={handleLike}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm transition-colors",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm transition-colors active:scale-90",
                 liked
                   ? "text-red-500 bg-red-50 dark:bg-red-950/20"
                   : "text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
@@ -254,7 +251,7 @@ export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: Pos
             >
               <Heart className={cn("h-4 w-4", liked && "fill-current")} />
               <span>{likeCount > 0 && likeCount}</span>
-            </motion.button>
+            </button>
 
             <button
               onClick={() => setShowComments(!showComments)}
@@ -272,18 +269,15 @@ export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: Pos
             </button>
           </div>
 
-          <motion.button
-            whileTap={{ scale: 0.85 }}
+          <button
             onClick={handleSave}
             className={cn(
-              "p-1.5 rounded-xl transition-colors",
-              saved
-                ? "text-brand-orange"
-                : "text-muted-foreground hover:text-brand-orange"
+              "p-1.5 rounded-xl transition-colors active:scale-90",
+              saved ? "text-brand-orange" : "text-muted-foreground hover:text-brand-orange"
             )}
           >
             <Bookmark className={cn("h-4 w-4", saved && "fill-current")} />
-          </motion.button>
+          </button>
         </div>
 
         {/* Comments */}
@@ -295,15 +289,17 @@ export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: Pos
               exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-t border-border/60"
             >
-              <CommentSection
-                postId={post.id}
-                onCommentAdded={() => setCommentCount((c) => c + 1)}
-              />
+              <Suspense fallback={<div className="p-4 text-center text-xs text-muted-foreground">Chargement…</div>}>
+                <CommentSection
+                  postId={post.id}
+                  onCommentAdded={() => setCommentCount((c) => c + 1)}
+                />
+              </Suspense>
             </motion.div>
           )}
         </AnimatePresence>
       </Card>
-    </motion.div>
+    </div>
   );
 }, (prev, next) => prev.post.id === next.post.id && prev.post.like_count === next.post.like_count && prev.post.comment_count === next.post.comment_count);
 
@@ -369,11 +365,13 @@ function ImageGrid({ images }: { images: { url: string }[] }) {
       )}
 
       {lightboxIndex !== null && (
-        <ImageLightbox
-          images={urls}
-          initialIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-        />
+        <Suspense fallback={null}>
+          <ImageLightbox
+            images={urls}
+            initialIndex={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+          />
+        </Suspense>
       )}
     </>
   );
@@ -397,8 +395,10 @@ function PdfPreviewCard({ pdf }: PdfPreviewCardProps) {
       rel="noopener noreferrer"
       className="mx-4 mb-3 block rounded-xl border border-border/60 overflow-hidden hover:border-brand-orange/50 hover:shadow-lg transition-all group"
     >
-      {/* Vraie prévisualisation page 1 du PDF */}
-      <PdfThumbnail url={pdf.url} height={200} />
+      {/* Prévisualisation PDF — chargée en différé (pdfjs-dist est lourd) */}
+      <Suspense fallback={<div className="h-[200px] bg-gray-50 animate-pulse" />}>
+        <PdfThumbnail url={pdf.url} height={200} />
+      </Suspense>
 
       {/* Pied de carte */}
       <div className="flex items-center gap-3 px-3 py-2.5 bg-background border-t border-border/40">

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useInView } from "react-intersection-observer";
-import { motion } from "framer-motion";
 import { RefreshCw, Inbox } from "lucide-react";
 import { PostCard } from "./PostCard";
 import { PostSkeleton } from "./PostSkeleton";
@@ -45,21 +44,12 @@ export function Feed({ userId }: { userId: string }) {
         <EmptyFeed />
       ) : (
         <>
-          {posts.map((post, index) => (
-            <motion.div
+          {posts.map((post) => (
+            <PostCard
               key={post.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index < 5 ? index * 0.05 : 0 }}
-            >
-              <PostCard
-                post={post}
-                onDelete={(id) => {
-                  // React Query revalidation handles this
-                  refetch();
-                }}
-              />
-            </motion.div>
+              post={post}
+              onDelete={() => refetch()}
+            />
           ))}
 
           {/* Infinite scroll sentinel */}

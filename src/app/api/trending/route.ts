@@ -28,7 +28,9 @@ export async function GET() {
   const likedSet = new Set((liked ?? []).map((l: any) => l.post_id));
   const savedSet = new Set((saved ?? []).map((s: any) => s.post_id));
 
-  return NextResponse.json({
+  const trendRes = NextResponse.json({
     posts: valid.map((p: any) => ({ ...p, liked_by_user: likedSet.has(p.id), saved_by_user: savedSet.has(p.id) })),
   });
+  trendRes.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
+  return trendRes;
 }

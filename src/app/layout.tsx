@@ -280,6 +280,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="theme-color" content="#F97316" />
         {/* Empêche le zoom sur double-tap iOS */}
         <meta name="format-detection" content="telephone=no" />
+        {/* Preconnect — réduit la latence des premières requêtes Supabase */}
+        <link rel="preconnect" href="https://plbpokykxbcwgjcczqds.supabase.co" />
+        <link rel="dns-prefetch" href="https://plbpokykxbcwgjcczqds.supabase.co" />
+        <link rel="preconnect" href="https://unpkg.com" />
       </head>
       <body className={`${inter.variable} ${spaceGrotesk.variable} antialiased`}>
         <Providers>

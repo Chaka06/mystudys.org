@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { TrendingUp } from "lucide-react";
 import { PostCard } from "./PostCard";
 import { PostSkeleton } from "./PostSkeleton";
@@ -33,10 +32,8 @@ export function TrendingFeed({ userId }: { userId: string }) {
           <p className="text-sm mt-1">Revenez après que des publications aient été likées.</p>
         </div>
       ) : (
-        posts.map((post, i) => (
-          <motion.div key={post.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-            <PostCard post={post} />
-          </motion.div>
+        posts.map((post) => (
+          <PostCard key={post.id} post={post} />
         ))
       )}
     </div>

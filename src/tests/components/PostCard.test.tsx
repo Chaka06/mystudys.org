@@ -190,12 +190,15 @@ describe("PostCard", () => {
     }
   });
 
-  it("affiche les commentaires en cliquant sur le bouton Commentaires", () => {
+  it("affiche les commentaires en cliquant sur le bouton Commentaires", async () => {
     setup();
     const commentBtn = screen.getAllByRole("button").find(btn => btn.textContent?.includes("3"));
     if (commentBtn) {
       fireEvent.click(commentBtn);
-      expect(screen.getByTestId("comments-post-1")).toBeInTheDocument();
+      // CommentSection est lazy — on attend le rendu après résolution du Suspense
+      await waitFor(() => {
+        expect(screen.getByTestId("comments-post-1")).toBeInTheDocument();
+      });
     }
   });
 

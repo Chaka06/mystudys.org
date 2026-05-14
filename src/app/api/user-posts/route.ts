@@ -31,8 +31,10 @@ export async function GET(req: NextRequest) {
 
   const valid = (posts ?? []).filter((p) => p.author !== null);
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     posts: valid,
     nextOffset: valid.length === limit ? offset + limit : null,
   });
+  res.headers.set("Cache-Control", "private, s-maxage=60, stale-while-revalidate=120");
+  return res;
 }
