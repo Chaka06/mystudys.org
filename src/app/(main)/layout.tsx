@@ -7,6 +7,7 @@ import { RightSidebar } from "@/components/layout/RightSidebar";
 import { MainContent } from "@/components/layout/MainContent";
 import { LayoutContainer } from "@/components/layout/LayoutContainer";
 import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
+import { PullToRefreshProvider } from "@/components/providers/PullToRefreshProvider";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -20,9 +21,11 @@ export default async function MainLayout({ children }: { children: React.ReactNo
         <LayoutContainer>
           <Sidebar />
           <MainContent>
-            <div className="page-transition">
-              {children}
-            </div>
+            <PullToRefreshProvider>
+              <div className="page-transition">
+                {children}
+              </div>
+            </PullToRefreshProvider>
           </MainContent>
           <RightSidebar />
         </LayoutContainer>
