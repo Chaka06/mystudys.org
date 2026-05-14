@@ -82,6 +82,6 @@ export async function GET(req: NextRequest) {
     posts: enriched,
     nextOffset: enriched.length === limit ? offset + limit : null,
   });
-  res.headers.set("Cache-Control", "private, s-maxage=60, stale-while-revalidate=120");
+  res.headers.set("Cache-Control", "private, s-maxage=10, stale-while-revalidate=30");
   return res;
 }

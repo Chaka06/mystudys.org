@@ -21,7 +21,8 @@ export function useFeed(userId: string) {
 
 export function useUserPosts(profileId: string, currentUserId?: string) {
   return useInfiniteQuery({
-    queryKey: ["user-posts", profileId],
+    // currentUserId dans le queryKey : si l'utilisateur change, le cache est différencié
+    queryKey: ["user-posts", profileId, currentUserId],
     queryFn: async ({ pageParam = 0 }) => {
       const res = await fetch(`/api/user-posts?profileId=${profileId}&offset=${pageParam}`);
       if (!res.ok) return { posts: [], nextOffset: null };
@@ -29,7 +30,7 @@ export function useUserPosts(profileId: string, currentUserId?: string) {
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextOffset,
-    staleTime: 30_000,
+    staleTime: 5_000, // 5s — assez court pour refléter un like récent
     enabled: !!profileId,
   });
 }

@@ -26,6 +26,12 @@ export async function toggleLikeAction(postId: string, liked: boolean) {
       await notify(post.author_id, user.id, "like", "Nouveau like", `${sender?.full_name ?? "Quelqu'un"} a aimé votre publication`, "post", postId);
     }
   }
+
+  // Invalider les caches RSC — sans ça, liked_by_user reste faux sur la page profil
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/feed");
+  revalidatePath("/profile", "layout"); // invalide tous les /profile/[username]
+
   return { ok: true };
 }
 
