@@ -101,7 +101,10 @@ export function ProfileHeader({
   };
 
   const handleMessage = async () => {
-    if (!currentUser || messagingLoading) return;
+    // On ne bloque plus sur !currentUser — l'API vérifie l'auth côté serveur.
+    // currentUser peut être null pendant l'hydratation du store Zustand,
+    // ce qui faisait échouer silencieusement le clic sans message d'erreur.
+    if (messagingLoading) return;
     setMessagingLoading(true);
     try {
       const res = await fetch("/api/messages", {
@@ -109,6 +112,11 @@ export function ProfileHeader({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ otherUserId: profile.id }),
       });
+      if (res.status === 401) {
+        toast.error("Vous devez être connecté pour envoyer un message");
+        router.push("/login");
+        return;
+      }
       if (res.ok) {
         const { conversationId } = await res.json();
         if (conversationId) router.push(`/messages/${conversationId}`);

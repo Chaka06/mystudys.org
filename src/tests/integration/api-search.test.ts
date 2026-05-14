@@ -32,11 +32,11 @@ function makeChainableQuery(finalData: any[]) {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     or: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     in: vi.fn().mockReturnThis(),
     then: (resolve: any, reject: any) => Promise.resolve({ data: finalData }).then(resolve, reject),
   };
-  // Make all methods return the chain itself
   Object.keys(chain).forEach((k) => {
     if (k !== "then") chain[k].mockReturnValue(chain);
   });
