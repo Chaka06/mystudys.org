@@ -294,10 +294,11 @@ export function ProfileHeader({
             )}
           </div>
 
-          {/* Zone actions */}
-          <div className="flex flex-col items-end gap-2 pb-1">
+          {/* Zone actions — boutons côte à côte (Message + Ami) */}
+          <div className="flex flex-row items-center gap-2 pb-1 flex-wrap justify-end">
             {!isOwn && (
               <>
+                {/* Bouton Message toujours visible, côte à côte avec le bouton ami */}
                 <Button
                   variant="outline" size="sm"
                   onClick={handleMessage}
