@@ -830,19 +830,8 @@ class _InputBar extends StatelessWidget {
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(pendingFileName ?? (pendingFileType == 'image' ? 'Image' : 'PDF'),
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (pendingFileType == 'image')
-                      // Toggle "vue une fois"
-                      GestureDetector(
-                        onTap: onToggleViewOnce,
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(isViewOnce ? Icons.timer : Icons.timer_outlined,
-                            size: 13, color: isViewOnce ? kOrange : Colors.grey.shade500),
-                          const SizedBox(width: 4),
-                          Text(isViewOnce ? 'Vue une fois activé' : 'Vue une fois',
-                            style: TextStyle(fontSize: 11, color: isViewOnce ? kOrange : Colors.grey.shade500,
-                              fontWeight: isViewOnce ? FontWeight.w700 : FontWeight.normal)),
-                        ]),
-                      ),
+                    Text(pendingFileType == 'image' ? 'Image sélectionnée' : 'PDF sélectionné',
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                   ])),
                   if (uploading)
                     const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: kOrange, strokeWidth: 2))
@@ -899,6 +888,38 @@ class _InputBar extends StatelessWidget {
                       : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                 ),
               ),
+
+              // Bouton ① "vue une fois" — visible uniquement si photo en attente
+              if (pendingFileType == 'image') ...[
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: onToggleViewOnce,
+                  child: Tooltip(
+                    message: isViewOnce ? 'Désactiver vue une fois' : 'Activer vue une fois',
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: isViewOnce ? kOrange : Colors.transparent,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isViewOnce ? kOrange : Colors.grey.shade400,
+                          width: 2,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '1',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: isViewOnce ? Colors.white : Colors.grey.shade400,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ]),
           ),
         ],
