@@ -101,7 +101,18 @@ export async function POST(req: NextRequest) {
   const senderName = sender?.full_name ?? "Quelqu'un";
 
   if (action === "send" && addresseeId) {
-    // Stocker l'ID de l'amitié dans resource_id pour les actions inline dans les notifications
+    // Vérifier qu'il n'existe pas déjà une amitié dans n'importe quel sens
+    const { data: existing } = await supabase
+      .from("friendships")
+      .select("id, status")
+      .or(`and(requester_id.eq.${user.id},addressee_id.eq.${addresseeId}),and(requester_id.eq.${addresseeId},addressee_id.eq.${user.id})`)
+      .maybeSingle();
+
+    if (existing) {
+      // Amitié ou demande déjà existante — ne rien faire
+      return NextResponse.json({ ok: true, existing: true });
+    }
+
     const { data: fs } = await supabase
       .from("friendships")
       .insert({ requester_id: user.id, addressee_id: addresseeId })

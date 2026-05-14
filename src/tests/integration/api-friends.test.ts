@@ -53,6 +53,7 @@ function buildFriendsMock(options: {
             eq: vi.fn().mockReturnThis(),
             or: vi.fn().mockReturnThis(),
             in: vi.fn().mockResolvedValue({ data: options.friendships ?? [mockFriendship()] }),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null }),
             single: vi.fn().mockResolvedValue({ data: { requester_id: "user-2" } }),
           }),
           insert: vi.fn().mockReturnValue({
@@ -75,7 +76,12 @@ function buildFriendsMock(options: {
         };
       }
       return {
-        select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnThis() }),
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnThis(),
+          or: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+          single: vi.fn().mockResolvedValue({ data: null }),
+        }),
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         update: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnThis() }),
         delete: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnThis() }),

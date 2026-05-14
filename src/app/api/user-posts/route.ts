@@ -19,6 +19,29 @@ export async function GET(req: NextRequest) {
 
   if (!profileId) return NextResponse.json({ error: "profileId requis" }, { status: 400 });
 
+  // Vérifier la visibilité du profil — un profil privé n'est accessible qu'à ses amis
+  if (profileId !== user.id) {
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("is_public")
+      .eq("id", profileId)
+      .single();
+
+    if (targetProfile && !targetProfile.is_public) {
+      // Vérifier si on est amis
+      const { data: friendship } = await supabase
+        .from("friendships")
+        .select("id")
+        .or(`and(requester_id.eq.${user.id},addressee_id.eq.${profileId}),and(requester_id.eq.${profileId},addressee_id.eq.${user.id})`)
+        .eq("status", "accepted")
+        .maybeSingle();
+
+      if (!friendship) {
+        return NextResponse.json({ posts: [], nextOffset: null });
+      }
+    }
+  }
+
   const { data: posts, error } = await supabase
     .from("posts")
     .select(POST_SELECT)

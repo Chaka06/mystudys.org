@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin, GraduationCap, Building2, Globe, MessageCircle,
   UserPlus, UserMinus, UserCheck, Settings, Users,
-  CheckCircle, XCircle, Clock, ChevronDown, UserX, ShieldAlert
+  CheckCircle, XCircle, Clock, ChevronDown, ShieldAlert, Loader2
 } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -26,14 +26,7 @@ interface ProfileHeaderProps {
   onFriendshipChange?: () => void;
 }
 
-// ─── Types d'état de relation ─────────────────────────────────────────────────
-type RelationState =
-  | "own"               // Mon propre profil
-  | "none"              // Aucune relation
-  | "pending_sent"      // J'ai envoyé une demande
-  | "pending_received"  // J'ai reçu une demande
-  | "accepted"          // Amis
-  | "blocked";          // Bloqué
+type RelationState = "own" | "none" | "pending_sent" | "pending_received" | "accepted" | "blocked";
 
 export function ProfileHeader({
   profile,
@@ -46,57 +39,86 @@ export function ProfileHeader({
   const { profile: currentUser } = useAuthStore();
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
+  const [messagingLoading, setMessagingLoading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // isOwnProfile calculé sur le serveur — source de vérité absolue
   const isOwn = isOwnProfile;
 
-  // Détermine l'état de relation précis
   const relation: RelationState = (() => {
     if (isOwn) return "own";
     if (!friendshipStatus) return "none";
     if (friendshipStatus === "accepted") return "accepted";
     if (friendshipStatus === "blocked") return "blocked";
-    if (friendshipStatus === "pending") {
-      return iAmRequester ? "pending_sent" : "pending_received";
-    }
+    if (friendshipStatus === "pending") return iAmRequester ? "pending_sent" : "pending_received";
     return "none";
   })();
 
-  // ─── Actions ────────────────────────────────────────────────────────────────
+  // ─── Actions — toast APRÈS confirmation serveur ──────────────────────────────
 
-  const call = async (action: string, extra: Record<string, string> = {}, key = action) => {
+  const call = async (
+    action: string,
+    extra: Record<string, string> = {},
+    key: string,
+    successMsg?: string,
+    infoMsg?: string,
+  ) => {
     setLoading(key);
     try {
-      await fetch("/api/friends", {
+      const res = await fetch("/api/friends", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, ...extra }),
       });
+      if (!res.ok) throw new Error();
+      if (successMsg) toast.success(successMsg);
+      if (infoMsg)    toast.info(infoMsg);
       await onFriendshipChange?.();
     } catch {
-      toast.error("Une erreur est survenue");
+      toast.error("Une erreur est survenue. Réessayez.");
     } finally {
       setLoading(null);
     }
   };
 
-  const sendRequest    = () => { call("send",   { addresseeId: profile.id }, "send");    toast.success(`Demande d'amitié envoyée à ${profile.first_name} !`); };
-  const cancelRequest  = () => { call("reject", { friendshipId: friendshipId! }, "cancel"); toast.info("Demande annulée"); };
-  const acceptRequest  = () => { call("accept", { friendshipId: friendshipId! }, "accept"); toast.success(`Vous êtes maintenant amis avec ${profile.first_name} !`); };
-  const rejectRequest  = () => { call("reject", { friendshipId: friendshipId! }, "reject"); toast.info("Demande refusée"); };
-  const removeFriend   = () => { setMenuOpen(false); call("remove", { friendshipId: friendshipId! }, "remove"); toast.info(`${profile.first_name} retiré de vos amis`); };
+  // Guard sur friendshipId pour éviter les crashes si state race condition
+  const requireFriendshipId = () => {
+    if (!friendshipId) { toast.error("État invalide, rechargez la page."); return false; }
+    return true;
+  };
+
+  const sendRequest   = () => call("send",   { addresseeId: profile.id }, "send",
+    `Demande d'amitié envoyée à ${profile.first_name} !`);
+  const cancelRequest = () => requireFriendshipId() && call("reject", { friendshipId: friendshipId! }, "cancel",
+    undefined, "Demande annulée");
+  const acceptRequest = () => requireFriendshipId() && call("accept", { friendshipId: friendshipId! }, "accept",
+    `Vous êtes maintenant amis avec ${profile.first_name} !`);
+  const rejectRequest = () => requireFriendshipId() && call("reject", { friendshipId: friendshipId! }, "reject",
+    undefined, "Demande refusée");
+  const removeFriend  = () => {
+    setMenuOpen(false);
+    if (!requireFriendshipId()) return;
+    call("remove", { friendshipId: friendshipId! }, "remove", undefined, `${profile.first_name} retiré de vos amis`);
+  };
 
   const handleMessage = async () => {
-    if (!currentUser) return;
-    const res = await fetch("/api/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ otherUserId: profile.id }),
-    });
-    if (res.ok) {
-      const { conversationId } = await res.json();
-      if (conversationId) router.push(`/messages/${conversationId}`);
+    if (!currentUser || messagingLoading) return;
+    setMessagingLoading(true);
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otherUserId: profile.id }),
+      });
+      if (res.ok) {
+        const { conversationId } = await res.json();
+        if (conversationId) router.push(`/messages/${conversationId}`);
+      } else {
+        toast.error("Impossible d'ouvrir la conversation");
+      }
+    } catch {
+      toast.error("Erreur réseau");
+    } finally {
+      setMessagingLoading(false);
     }
   };
 
@@ -105,13 +127,13 @@ export function ProfileHeader({
   const renderFriendArea = () => {
     if (relation === "own" || relation === "blocked") return null;
 
-    // ── Aucune relation ─────────────────────────────────────────────────────
     if (relation === "none") {
       return (
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
           <Button
             onClick={sendRequest}
             loading={loading === "send"}
+            aria-label={`Envoyer une demande d'amitié à ${profile.first_name}`}
             className="gap-2 bg-brand-orange hover:bg-orange-600 text-white shadow-sm shadow-orange-200 active:scale-95 transition-transform"
             size="sm"
           >
@@ -122,7 +144,6 @@ export function ProfileHeader({
       );
     }
 
-    // ── Demande envoyée ──────────────────────────────────────────────────────
     if (relation === "pending_sent") {
       return (
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-2">
@@ -131,10 +152,10 @@ export function ProfileHeader({
             Demande envoyée
           </div>
           <Button
-            variant="ghost"
-            size="sm"
+            variant="ghost" size="sm"
             onClick={cancelRequest}
             loading={loading === "cancel"}
+            aria-label="Annuler la demande d'amitié"
             className="text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
           >
             Annuler
@@ -143,26 +164,20 @@ export function ProfileHeader({
       );
     }
 
-    // ── Demande reçue ────────────────────────────────────────────────────────
     if (relation === "pending_received") {
       return (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-end gap-2"
-        >
-          {/* Badge informatif */}
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-orange/10 border border-brand-orange/30 text-xs font-semibold text-brand-orange">
             <Users className="h-3.5 w-3.5" />
-            {profile.first_name} vous a envoyé une demande d'amitié
+            {profile.first_name} vous a envoyé une demande
           </div>
-          {/* Actions */}
           <div className="flex items-center gap-2">
             <Button
               onClick={acceptRequest}
               loading={loading === "accept"}
               size="sm"
-              className="gap-1.5 bg-brand-green hover:bg-green-700 text-white shadow-sm shadow-green-200 active:scale-95 transition-transform"
+              aria-label="Accepter la demande d'amitié"
+              className="gap-1.5 bg-brand-green hover:bg-green-700 text-white shadow-sm shadow-green-200"
             >
               <CheckCircle className="h-4 w-4" />
               Accepter
@@ -170,8 +185,8 @@ export function ProfileHeader({
             <Button
               onClick={rejectRequest}
               loading={loading === "reject"}
-              variant="outline"
-              size="sm"
+              variant="outline" size="sm"
+              aria-label="Refuser la demande d'amitié"
               className="gap-1.5 hover:text-destructive hover:border-destructive/50"
             >
               <XCircle className="h-4 w-4" />
@@ -182,20 +197,19 @@ export function ProfileHeader({
       );
     }
 
-    // ── Amis ─────────────────────────────────────────────────────────────────
     if (relation === "accepted") {
       return (
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
+            aria-label="Options d'amitié"
+            aria-expanded={menuOpen}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-green/10 border border-brand-green/30 text-sm font-semibold text-brand-green hover:bg-brand-green/20 transition-colors"
           >
             <UserCheck className="h-4 w-4" />
             Amis
             <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", menuOpen && "rotate-180")} />
           </button>
-
-          {/* Dropdown */}
           <AnimatePresence>
             {menuOpen && (
               <>
@@ -209,15 +223,16 @@ export function ProfileHeader({
                 >
                   <button
                     onClick={removeFriend}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    disabled={loading === "remove"}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
                   >
                     <UserMinus className="h-4 w-4 text-orange-500" />
-                    Retirer des amis
+                    {loading === "remove" ? "Suppression…" : "Retirer des amis"}
                   </button>
                   <div className="border-t border-border/40 my-1" />
                   <button
                     onClick={() => { setMenuOpen(false); toast.info("Fonctionnalité bientôt disponible"); }}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors text-muted-foreground hover:text-destructive"
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-red-50 transition-colors text-muted-foreground hover:text-destructive"
                   >
                     <ShieldAlert className="h-4 w-4" />
                     Bloquer
@@ -233,19 +248,17 @@ export function ProfileHeader({
     return null;
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────
-
   return (
     <div className="rounded-2xl border border-border/60 overflow-hidden bg-card shadow-sm">
       {/* Cover */}
       <div className="relative h-36 sm:h-48 bg-gradient-to-br from-orange-400 via-orange-500 to-green-500">
         {profile.cover_url && (
-          <img src={profile.cover_url} alt="Couverture" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={profile.cover_url} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
         )}
         {isOwn && (
           <Button
-            variant="ghost"
-            size="icon-sm"
+            variant="ghost" size="icon-sm"
+            aria-label="Modifier la couverture"
             className="absolute top-3 right-3 bg-black/30 hover:bg-black/50 text-white backdrop-blur-sm"
             asChild
           >
@@ -259,17 +272,16 @@ export function ProfileHeader({
       {/* Avatar + Actions */}
       <div className="px-4 pb-4">
         <div className="flex items-end justify-between -mt-10 mb-3">
-          {/* Avatar */}
           <div className="relative">
             <Avatar className="h-20 w-20 ring-4 ring-background shadow-xl">
-              <AvatarImage src={profile.avatar_url ?? undefined} />
+              <AvatarImage src={profile.avatar_url ?? undefined} alt={`Photo de profil de ${profile.full_name}`} />
               <AvatarFallback className="text-2xl bg-brand-orange text-white">
                 {getInitials(profile.full_name)}
               </AvatarFallback>
             </Avatar>
             {profile.is_verified && (
-              <div className="absolute bottom-1 right-1 h-6 w-6 rounded-full bg-brand-orange flex items-center justify-center ring-2 ring-background shadow-sm">
-                <span className="text-white text-xs font-bold">✓</span>
+              <div aria-label="Compte vérifié" className="absolute bottom-1 right-1 h-6 w-6 rounded-full bg-brand-orange flex items-center justify-center ring-2 ring-background shadow-sm">
+                <span className="text-white text-xs font-bold" aria-hidden>✓</span>
               </div>
             )}
           </div>
@@ -278,26 +290,26 @@ export function ProfileHeader({
           <div className="flex flex-col items-end gap-2 pb-1">
             {!isOwn && (
               <>
-                {/* Bouton Message toujours visible */}
                 <Button
-                  variant="outline"
-                  size="sm"
+                  variant="outline" size="sm"
                   onClick={handleMessage}
+                  disabled={messagingLoading}
+                  aria-label={`Envoyer un message à ${profile.first_name}`}
                   className="gap-1.5 hover:border-brand-orange/50 hover:text-brand-orange"
                 >
-                  <MessageCircle className="h-4 w-4" />
+                  {messagingLoading
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <MessageCircle className="h-4 w-4" />
+                  }
                   Message
                 </Button>
-
-                {/* Zone ami — état dynamique */}
                 {renderFriendArea()}
               </>
             )}
-
             {isOwn && (
               <Button variant="outline" size="sm" asChild className="gap-1.5">
                 <Link href="/profile/settings">
-                  <Settings className="h-4 w-4" />
+                  <Settings className="h-4 w-4" aria-hidden />
                   Modifier le profil
                 </Link>
               </Button>
@@ -320,24 +332,18 @@ export function ProfileHeader({
               </Badge>
             )}
           </div>
-
           <p className="text-muted-foreground text-sm">@{profile.username}</p>
-
-          {profile.bio && (
-            <p className="text-sm mt-2 leading-relaxed text-foreground/80">{profile.bio}</p>
-          )}
-
-          {/* Métadonnées */}
+          {profile.bio && <p className="text-sm mt-2 leading-relaxed text-foreground/80">{profile.bio}</p>}
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground mt-2">
             {profile.institution && (
               <span className="flex items-center gap-1">
-                <Building2 className="h-3.5 w-3.5 text-brand-orange shrink-0" />
+                <Building2 className="h-3.5 w-3.5 text-brand-orange shrink-0" aria-hidden />
                 {profile.institution}
               </span>
             )}
             {profile.field_of_study && (
               <span className="flex items-center gap-1">
-                <GraduationCap className="h-3.5 w-3.5 text-brand-green shrink-0" />
+                <GraduationCap className="h-3.5 w-3.5 text-brand-green shrink-0" aria-hidden />
                 {profile.field_of_study}
               </span>
             )}
@@ -348,24 +354,18 @@ export function ProfileHeader({
             )}
             {profile.city && (
               <span className="flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 {profile.city}
               </span>
             )}
             {profile.website && (
-              <a
-                href={profile.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-brand-orange hover:underline"
-              >
-                <Globe className="h-3.5 w-3.5 shrink-0" />
+              <a href={profile.website} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-brand-orange hover:underline">
+                <Globe className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 Site web
               </a>
             )}
           </div>
-
-          {/* Stats */}
           <div className="flex gap-6 pt-3 border-t border-border/60 mt-3">
             <Stat value={profile.post_count} label="Publications" />
             <Stat value={profile.friend_count} label="Amis" />
