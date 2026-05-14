@@ -58,16 +58,36 @@ export function VerifyOtpContent() {
     }
 
     toast.success("Compte vérifié avec succès !");
-    router.push("/feed");
+
+    // CORRECTION CRITIQUE :
+    // 1. router.refresh() invalide le cache RSC de Next.js
+    //    → les Server Components se ré-exécutent avec la nouvelle session
+    //    → sans ça, FeedPage voit user=null et redirige vers /login
+    //    → ce qui crée une boucle /feed → /login → /feed (middleware AUTH_PATHS)
+    //    → et laisse le spinner bloqué indéfiniment
+    //
+    // 2. router.replace("/feed") au lieu de push pour éviter que
+    //    le bouton "retour" ramène vers /verify-otp après connexion
+    router.refresh();
+    router.replace("/feed");
+
+    // Pas de setLoading(false) ici — le composant va se démonter
+    // quand la navigation vers /feed se complète.
+    // Si on le met avant router.replace, le bouton re-cliquable
+    // pendant la navigation crée des doubles soumissions.
   };
 
   const handleResend = async () => {
     if (countdown > 0 || !email) return;
     setResending(true);
     const supabase = createClient();
-    await supabase.auth.resend({ type: "signup", email });
-    setCountdown(60);
-    toast.success("Code renvoyé !");
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    if (error) {
+      toast.error("Erreur lors du renvoi. Réessayez.");
+    } else {
+      setCountdown(60);
+      toast.success("Code renvoyé !");
+    }
     setResending(false);
   };
 
@@ -111,7 +131,8 @@ export function VerifyOtpContent() {
                   value={digit}
                   onChange={(e) => handleChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
-                  className="h-12 w-10 text-center text-lg font-bold rounded-xl border-2 border-input bg-background focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/30 outline-none transition-all"
+                  disabled={loading}
+                  className="h-12 w-10 text-center text-lg font-bold rounded-xl border-2 border-input bg-background focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/30 outline-none transition-all disabled:opacity-50"
                 />
               ))}
             </div>
@@ -120,9 +141,9 @@ export function VerifyOtpContent() {
               className="w-full"
               onClick={() => verifyOtp(otp.join(""))}
               loading={loading}
-              disabled={otp.some((d) => !d)}
+              disabled={otp.some((d) => !d) || loading}
             >
-              Vérifier
+              {loading ? "Vérification…" : "Vérifier"}
             </Button>
 
             <div className="text-center mt-4">
@@ -134,9 +155,9 @@ export function VerifyOtpContent() {
                   <button
                     onClick={handleResend}
                     disabled={resending}
-                    className="text-brand-orange font-semibold hover:underline"
+                    className="text-brand-orange font-semibold hover:underline disabled:opacity-50"
                   >
-                    Renvoyer
+                    {resending ? "Envoi…" : "Renvoyer"}
                   </button>
                 )}
               </p>
