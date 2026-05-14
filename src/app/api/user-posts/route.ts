@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   if (!profileId) return NextResponse.json({ error: "profileId requis" }, { status: 400 });
 
-  // Vérifier la visibilité du profil — un profil privé n'est accessible qu'à ses amis
+  // Vérifier la visibilité du profil
   if (profileId !== user.id) {
     const { data: targetProfile } = await supabase
       .from("profiles")
@@ -28,7 +28,6 @@ export async function GET(req: NextRequest) {
       .single();
 
     if (targetProfile && !targetProfile.is_public) {
-      // Vérifier si on est amis
       const { data: friendship } = await supabase
         .from("friendships")
         .select("id")
@@ -54,9 +53,34 @@ export async function GET(req: NextRequest) {
 
   const valid = (posts ?? []).filter((p) => p.author !== null);
 
+  // ─── Enrichissement liked_by_user / saved_by_user ────────────────────────────
+  // CORRECTION : cette étape manquait → PostCard recevait liked_by_user=undefined
+  // → initialisé à false → le like de l'utilisateur n'était jamais affiché sur le profil
+  // Le feed (/api/feed) le fait correctement depuis le début, le profil non.
+  const ids = valid.map((p: any) => p.id);
+
+  const [{ data: liked }, { data: saved }] = await Promise.all([
+    ids.length
+      ? supabase.from("post_likes").select("post_id").eq("user_id", user.id).in("post_id", ids)
+      : Promise.resolve({ data: [] }),
+    ids.length
+      ? supabase.from("post_saves").select("post_id").eq("user_id", user.id).in("post_id", ids)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const likedSet = new Set((liked ?? []).map((l: any) => l.post_id));
+  const savedSet = new Set((saved ?? []).map((s: any) => s.post_id));
+
+  const enriched = valid.map((p: any) => ({
+    ...p,
+    liked_by_user:  likedSet.has(p.id),
+    saved_by_user:  savedSet.has(p.id),
+    media: (p.media ?? []).sort((a: any, b: any) => a.position - b.position),
+  }));
+
   const res = NextResponse.json({
-    posts: valid,
-    nextOffset: valid.length === limit ? offset + limit : null,
+    posts: enriched,
+    nextOffset: enriched.length === limit ? offset + limit : null,
   });
   res.headers.set("Cache-Control", "private, s-maxage=60, stale-while-revalidate=120");
   return res;
