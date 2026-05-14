@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { sendPush } from "@/lib/push";
+import { isRateLimited } from "@/lib/rateLimit";
 
 async function notify(
   recipientId: string, senderId: string,
@@ -97,10 +98,19 @@ export async function POST(req: NextRequest) {
 
   const { action, friendshipId, addresseeId } = await req.json();
 
+  // Validation UUID pour éviter injections PostgREST
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (addresseeId  && !UUID.test(addresseeId))  return NextResponse.json({ error: "ID invalide" }, { status: 400 });
+  if (friendshipId && !UUID.test(friendshipId)) return NextResponse.json({ error: "ID invalide" }, { status: 400 });
+
   const { data: sender } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
   const senderName = sender?.full_name ?? "Quelqu'un";
 
   if (action === "send" && addresseeId) {
+    // Rate limit : 20 demandes d'amitié par heure
+    if (isRateLimited(`friend-send:${user.id}`, 20, 3600_000)) {
+      return NextResponse.json({ error: "Trop de demandes d'amitié. Réessayez plus tard." }, { status: 429 });
+    }
     // Vérifier qu'il n'existe pas déjà une amitié dans n'importe quel sens
     const { data: existing } = await supabase
       .from("friendships")

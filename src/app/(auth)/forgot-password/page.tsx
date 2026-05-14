@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { isRateLimited } from "@/lib/rateLimit";
 import { toast } from "sonner";
 
 export default function ForgotPasswordPage() {
@@ -18,20 +19,34 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed) return;
+
+    // Rate limit : 3 demandes / heure par email
+    if (isRateLimited(`reset:${trimmed}`, 3, 3600_000)) {
+      toast.error("Trop de tentatives. Réessayez dans 1 heure.");
+      return;
+    }
+
     setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
 
-    const supabase = createClient();
+      if (error) {
+        // Ne pas révéler si l'email existe — message générique
+        console.error("[reset-password]", error.message);
+      }
 
-    // On lance la requête sans attendre — le SMTP LWS peut être lent (~15s)
-    // mais Supabase envoie l'email quand même. On affiche le succès après 3s max.
-    supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    setSent(true);
-    setLoading(false);
+      // Toujours afficher le succès (sécurité : évite l'énumération d'emails)
+      setSent(true);
+    } catch {
+      toast.error("Erreur réseau. Réessayez.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,7 +56,6 @@ export default function ForgotPasswordPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm"
       >
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex flex-col items-center gap-2">
             <Image src="/logostudys.png" alt="STUDY'S" width={56} height={56} style={{ width: "auto", height: "56px" }} className="object-contain" priority />
@@ -64,9 +78,8 @@ export default function ForgotPasswordPage() {
             {sent ? (
               <div className="text-center space-y-4">
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Un lien de réinitialisation a été envoyé à{" "}
-                  <span className="font-semibold text-gray-800">{email}</span>.
-                  Vérifiez votre boîte mail (et les spams).
+                  Si un compte existe pour <span className="font-semibold text-gray-800">{email}</span>,
+                  un lien de réinitialisation a été envoyé. Vérifiez votre boîte mail et les spams.
                 </p>
                 <Button className="w-full bg-orange-500 hover:bg-orange-600" asChild>
                   <Link href="/login">Retour à la connexion</Link>
@@ -83,6 +96,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   leftIcon={<Mail className="h-4 w-4" />}
+                  autoComplete="email"
                   required
                 />
                 <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" loading={loading}>

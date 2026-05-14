@@ -10,9 +10,9 @@ const mockProfile = (id: string, overrides = {}) => ({
 });
 
 const mockFriendship = (overrides = {}) => ({
-  id: "fs-1", requester_id: "user-1", addressee_id: "user-2",
+  id: "22222222-2222-2222-2222-222222222222", requester_id: "bef99e72-cdc5-417f-ac9c-6d56925466b9", addressee_id: "efe7d223-ba13-42f6-89ac-8391ab490338",
   status: "accepted", created_at: new Date().toISOString(),
-  requester: mockProfile("user-1"), addressee: mockProfile("user-2"), ...overrides,
+  requester: mockProfile("bef99e72-cdc5-417f-ac9c-6d56925466b9"), addressee: mockProfile("efe7d223-ba13-42f6-89ac-8391ab490338"), ...overrides,
 });
 
 const makeRequest = (method: string, url: string, body?: any) =>
@@ -38,7 +38,7 @@ function buildFriendsMock(options: {
   vi.mocked(createClient).mockResolvedValue({
     auth: {
       getUser: vi.fn().mockResolvedValue({
-        data: { user: options.user !== undefined ? options.user : { id: "user-1" } },
+        data: { user: options.user !== undefined ? options.user : { id: "bef99e72-cdc5-417f-ac9c-6d56925466b9" } },
       }),
     },
     rpc: vi.fn((fn: string) => {
@@ -54,11 +54,11 @@ function buildFriendsMock(options: {
             or: vi.fn().mockReturnThis(),
             in: vi.fn().mockResolvedValue({ data: options.friendships ?? [mockFriendship()] }),
             maybeSingle: vi.fn().mockResolvedValue({ data: null }),
-            single: vi.fn().mockResolvedValue({ data: { requester_id: "user-2" } }),
+            single: vi.fn().mockResolvedValue({ data: { requester_id: "efe7d223-ba13-42f6-89ac-8391ab490338" } }),
           }),
           insert: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({ data: { id: "fs-new" }, error: null }),
+              single: vi.fn().mockResolvedValue({ data: { id: "33333333-3333-3333-3333-333333333333" }, error: null }),
             }),
           }),
           update: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnThis() }),
@@ -110,8 +110,8 @@ describe("GET /api/friends", () => {
   it("retourne les suggestions avec contacts mutuels en tête", async () => {
     buildFriendsMock({
       mutualContacts: [{ profile_id: "user-mutual", mutual_score: 50 }],
-      rpcData: [{ suggested_id: "user-3", common_friends: 2 }],
-      suggestions: [mockProfile("user-mutual"), mockProfile("user-3")],
+      rpcData: [{ suggested_id: "11111111-1111-1111-1111-111111111111", common_friends: 2 }],
+      suggestions: [mockProfile("user-mutual"), mockProfile("11111111-1111-1111-1111-111111111111")],
     });
     const res = await GET(makeRequest("GET", "http://localhost:3000/api/friends?type=suggestions"));
     expect(res.status).toBe(200);
@@ -139,7 +139,7 @@ describe("POST /api/friends", () => {
   it("retourne 401 si non authentifié", async () => {
     buildFriendsMock({ user: null });
     const res = await POST(makeRequest("POST", "http://localhost:3000/api/friends", {
-      action: "send", addresseeId: "user-2",
+      action: "send", addresseeId: "efe7d223-ba13-42f6-89ac-8391ab490338",
     }));
     expect(res.status).toBe(401);
   });
@@ -147,7 +147,7 @@ describe("POST /api/friends", () => {
   it("envoie une demande d'amitié", async () => {
     buildFriendsMock();
     const res = await POST(makeRequest("POST", "http://localhost:3000/api/friends", {
-      action: "send", addresseeId: "user-2",
+      action: "send", addresseeId: "efe7d223-ba13-42f6-89ac-8391ab490338",
     }));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -157,7 +157,7 @@ describe("POST /api/friends", () => {
   it("accepte une demande d'amitié", async () => {
     buildFriendsMock();
     const res = await POST(makeRequest("POST", "http://localhost:3000/api/friends", {
-      action: "accept", friendshipId: "fs-1",
+      action: "accept", friendshipId: "22222222-2222-2222-2222-222222222222",
     }));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -167,7 +167,7 @@ describe("POST /api/friends", () => {
   it("rejette une demande d'amitié", async () => {
     buildFriendsMock();
     const res = await POST(makeRequest("POST", "http://localhost:3000/api/friends", {
-      action: "reject", friendshipId: "fs-1",
+      action: "reject", friendshipId: "22222222-2222-2222-2222-222222222222",
     }));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -177,7 +177,7 @@ describe("POST /api/friends", () => {
   it("supprime une amitié", async () => {
     buildFriendsMock();
     const res = await POST(makeRequest("POST", "http://localhost:3000/api/friends", {
-      action: "remove", friendshipId: "fs-1",
+      action: "remove", friendshipId: "22222222-2222-2222-2222-222222222222",
     }));
     expect(res.status).toBe(200);
     const body = await res.json();

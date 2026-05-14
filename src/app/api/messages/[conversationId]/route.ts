@@ -10,6 +10,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ conv
 
   const { conversationId } = await params;
 
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID.test(conversationId)) return NextResponse.json({ error: "ID invalide" }, { status: 400 });
+
   const { data: messages } = await supabase
     .from("messages")
     .select("*, sender:profiles(id,username,full_name,avatar_url)")

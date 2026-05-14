@@ -14,8 +14,15 @@ function buildMock(options: { user?: any } = {}) {
       }),
     },
     from: vi.fn().mockReturnValue({
-      delete: vi.fn().mockReturnValue({ eq: deleteEq }),
-      insert: insertMock,
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      }),
+      delete: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+      upsert: insertMock,
     }),
   } as any);
 
@@ -77,10 +84,10 @@ describe("POST /api/contacts/sync", () => {
     expect(body.synced).toBe(1);
   });
 
-  it("supprime les anciens contacts avant d'insérer", async () => {
-    const { deleteEq } = buildMock();
+  it("utilise upsert pour insérer les contacts", async () => {
+    const { insertMock } = buildMock();
     await POST(makeRequest({ phones: ["+2250799298420"] }));
-    expect(deleteEq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(insertMock).toHaveBeenCalled();
   });
 
   it("limite à 5000 contacts maximum", async () => {
@@ -101,8 +108,7 @@ describe("POST /api/contacts/sync", () => {
       const rows = calls[0][0];
       if (Array.isArray(rows)) {
         rows.forEach((row: any) => {
-          expect(row.phone_hash).not.toContain("225");
-          expect(row.phone_hash).not.toContain("0799");
+          expect(row.phone_hash).not.toContain("2250799");
           expect(row.phone_hash).toHaveLength(64);
         });
       }

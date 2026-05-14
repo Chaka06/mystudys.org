@@ -8,13 +8,40 @@ export function useConversations(userId: string) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadConversations = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { conversations } = await fetch("/api/messages").then((r) => r.json());
+      setConversations(conversations ?? []);
+    } catch {}
+    setLoading(false);
+  }, [userId]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  // Realtime — met à jour la liste quand un nouveau message arrive ou une conv change
   useEffect(() => {
     if (!userId) return;
-    fetch("/api/messages")
-      .then((r) => r.json())
-      .then(({ conversations }) => { setConversations(conversations ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [userId]);
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`conversations:${userId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "conversations",
+        filter: `participant_1=eq.${userId}`,
+      }, () => loadConversations())
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "conversations",
+        filter: `participant_2=eq.${userId}`,
+      }, () => loadConversations())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, loadConversations]);
 
   return { conversations, loading, setConversations };
 }

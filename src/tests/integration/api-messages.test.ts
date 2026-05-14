@@ -6,7 +6,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 
 const mockMessage = (overrides = {}) => ({
   id: "msg-1",
-  conversation_id: "conv-1",
+  conversation_id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
   sender_id: "user-1",
   content: "Bonjour !",
   is_read: false,
@@ -18,7 +18,7 @@ const mockMessage = (overrides = {}) => ({
 });
 
 const mockConversation = (overrides = {}) => ({
-  id: "conv-1",
+  id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
   participant_1: "user-1",
   participant_2: "user-2",
   last_message: null,
@@ -49,7 +49,7 @@ function buildConversationsMock(options: { user?: any; conversations?: any[] } =
       }),
       insert: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({ data: { id: "conv-new" } }),
+          single: vi.fn().mockResolvedValue({ data: { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" } }),
         }),
       }),
     }),
@@ -165,13 +165,13 @@ describe("POST /api/messages (créer conversation)", () => {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           or: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "conv-existing" } }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "cccccccc-cccc-cccc-cccc-cccccccccccc" } }),
         }),
       }),
     } as any);
     const res = await createConversation(makeRequest("POST", "http://localhost:3000/api/messages", { otherUserId: VALID_OTHER_ID }));
     const body = await res.json();
-    expect(body.conversationId).toBe("conv-existing");
+    expect(body.conversationId).toBe("cccccccc-cccc-cccc-cccc-cccccccccccc");
   });
 });
 
@@ -184,7 +184,7 @@ describe("GET /api/messages/[conversationId]", () => {
     buildMessagesMock({ user: null });
     const res = await getMessages(
       makeRequest("GET", "http://localhost:3000/api/messages/conv-1"),
-      { params: Promise.resolve({ conversationId: "conv-1" }) }
+      { params: Promise.resolve({ conversationId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }) }
     );
     expect(res.status).toBe(401);
   });
@@ -193,7 +193,7 @@ describe("GET /api/messages/[conversationId]", () => {
     buildMessagesMock({ messages: [mockMessage(), mockMessage({ id: "msg-2" })] });
     const res = await getMessages(
       makeRequest("GET", "http://localhost:3000/api/messages/conv-1"),
-      { params: Promise.resolve({ conversationId: "conv-1" }) }
+      { params: Promise.resolve({ conversationId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }) }
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -210,7 +210,7 @@ describe("POST /api/messages/[conversationId] (envoyer message)", () => {
     buildMessagesMock({ user: null });
     const res = await sendMessage(
       makeRequest("POST", "http://localhost:3000/api/messages/conv-1", { content: "Bonjour" }),
-      { params: Promise.resolve({ conversationId: "conv-1" }) }
+      { params: Promise.resolve({ conversationId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }) }
     );
     expect(res.status).toBe(401);
   });
@@ -219,7 +219,7 @@ describe("POST /api/messages/[conversationId] (envoyer message)", () => {
     buildMessagesMock();
     const res = await sendMessage(
       makeRequest("POST", "http://localhost:3000/api/messages/conv-1", { content: "   " }),
-      { params: Promise.resolve({ conversationId: "conv-1" }) }
+      { params: Promise.resolve({ conversationId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }) }
     );
     expect(res.status).toBe(400);
   });
@@ -228,7 +228,7 @@ describe("POST /api/messages/[conversationId] (envoyer message)", () => {
     buildMessagesMock({ insertedMsg: mockMessage({ id: "msg-sent", content: "Bonjour !" }) });
     const res = await sendMessage(
       makeRequest("POST", "http://localhost:3000/api/messages/conv-1", { content: "Bonjour !" }),
-      { params: Promise.resolve({ conversationId: "conv-1" }) }
+      { params: Promise.resolve({ conversationId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }) }
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -239,7 +239,7 @@ describe("POST /api/messages/[conversationId] (envoyer message)", () => {
     buildMessagesMock({ conversation: { is_active: false } });
     const res = await sendMessage(
       makeRequest("POST", "http://localhost:3000/api/messages/conv-1", { content: "Premier message" }),
-      { params: Promise.resolve({ conversationId: "conv-1" }) }
+      { params: Promise.resolve({ conversationId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }) }
     );
     expect(res.status).toBe(200);
     // Vérifier que is_first_message=true a été passé à l'insert

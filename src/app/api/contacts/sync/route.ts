@@ -37,14 +37,32 @@ export async function POST(req: NextRequest) {
 
   if (hashes.length === 0) return NextResponse.json({ synced: 0 });
 
-  // Supprimer les anciens contacts et insérer les nouveaux
-  await supabase.from("phone_contacts").delete().eq("user_id", user.id);
+  const newSet = new Set(hashes);
 
+  // Récupérer les anciens hashes pour supprimer uniquement ceux disparus
+  const { data: existing } = await supabase
+    .from("phone_contacts")
+    .select("phone_hash")
+    .eq("user_id", user.id);
+
+  const toDelete = (existing ?? [])
+    .map((r: any) => r.phone_hash)
+    .filter((h: string) => !newSet.has(h));
+
+  if (toDelete.length > 0) {
+    for (let i = 0; i < toDelete.length; i += 500) {
+      await supabase.from("phone_contacts")
+        .delete()
+        .eq("user_id", user.id)
+        .in("phone_hash", toDelete.slice(i, i + 500));
+    }
+  }
+
+  // Upsert les nouveaux (sans risque de perte si insert partiel)
   const rows = hashes.map((h) => ({ user_id: user.id, phone_hash: h }));
-
-  // Insérer par batches de 500
   for (let i = 0; i < rows.length; i += 500) {
-    await supabase.from("phone_contacts").insert(rows.slice(i, i + 500));
+    await supabase.from("phone_contacts")
+      .upsert(rows.slice(i, i + 500), { onConflict: "user_id,phone_hash" });
   }
 
   return NextResponse.json({ synced: hashes.length });
