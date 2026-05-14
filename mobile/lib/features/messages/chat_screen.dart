@@ -548,42 +548,12 @@ class _MessageBubble extends StatelessWidget {
 
                   // ── Photo "vue une fois" ──────────────────────────────
                   if (hasImage && msg.isViewOnce)
-                    GestureDetector(
-                      onTap: msg.isViewed ? null : () async {
-                        // Montrer la photo UNE SEULE fois
-                        await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-                          builder: (_) => _ViewOnceViewer(url: msg.mediaUrl!),
-                          fullscreenDialog: true,
-                        ));
-                        onViewOnce();
-                      },
-                      child: Container(
-                        width: 200, height: 80,
-                        margin: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: isMine ? Colors.white.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isMine ? Colors.white30 : Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              msg.isViewed ? Icons.visibility_off_outlined : Icons.timer_outlined,
-                              color: isMine ? Colors.white : kOrange, size: 28,
-                            ),
-                            const SizedBox(width: 10),
-                            Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(msg.isViewed ? 'Photo expirée' : 'Photo',
-                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                                  color: isMine ? Colors.white : Colors.black87)),
-                              Text(msg.isViewed ? 'Déjà vue' : 'Vue une fois — appuyer',
-                                style: TextStyle(fontSize: 10,
-                                  color: isMine ? Colors.white60 : Colors.grey.shade500)),
-                            ]),
-                          ],
-                        ),
-                      ),
+                    _ViewOnceBubble(
+                      msg: msg,
+                      isMine: isMine,
+                      timeStr: timeStr,
+                      borderRadius: br,
+                      onViewOnce: onViewOnce,
                     ),
 
                   // ── Photo normale ───────────────────────────────────────
@@ -677,6 +647,144 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+// ── Bulle "vue une fois" (style Telegram) ────────────────────────────────────
+
+class _ViewOnceBubble extends StatelessWidget {
+  final Message msg;
+  final bool isMine;
+  final String timeStr;
+  final BorderRadius borderRadius;
+  final VoidCallback onViewOnce;
+
+  const _ViewOnceBubble({
+    required this.msg, required this.isMine, required this.timeStr,
+    required this.borderRadius, required this.onViewOnce,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // ── EXPÉDITEUR : bulle sans photo, juste l'état ─────────────────────────
+    if (isMine) {
+      return Container(
+        width: 220,
+        decoration: BoxDecoration(
+          color: msg.isViewed
+              ? const Color(0xFFEA580C).withValues(alpha: 0.7) // Opened — plus discret
+              : kOrange,
+          borderRadius: borderRadius,
+        ),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Container(
+                width: 28, height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: msg.isViewed
+                      ? const Icon(Icons.camera_alt, color: Colors.white, size: 15)
+                      : const Text('1', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Photo', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                  Text(
+                    msg.isViewed ? 'Ouverte ✓' : 'En attente d\'ouverture',
+                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ]),
+              ),
+            ]),
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Text(timeStr, style: const TextStyle(color: Colors.white60, fontSize: 10)),
+              const SizedBox(width: 3),
+              Icon(msg.isRead ? Icons.done_all : Icons.done, size: 12, color: Colors.white60),
+            ]),
+          ],
+        ),
+      );
+    }
+
+    // ── DESTINATAIRE : bulle dégradé foncé style Telegram ───────────────────
+    return GestureDetector(
+      onTap: msg.isViewed ? null : () async {
+        await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+          builder: (_) => _ViewOnceViewer(url: msg.mediaUrl!),
+          fullscreenDialog: true,
+        ));
+        onViewOnce();
+      },
+      child: Container(
+        width: 220, height: 150,
+        decoration: BoxDecoration(
+          gradient: msg.isViewed
+              ? LinearGradient(
+                  colors: [Colors.grey.shade700, Colors.grey.shade600],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight)
+              : const LinearGradient(
+                  colors: [Color(0xFF3B1F6E), Color(0xFF1A3A5C)], // violet foncé → bleu nuit
+                  begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: borderRadius,
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 3))],
+        ),
+        child: Stack(
+          children: [
+            // Contenu centré
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!msg.isViewed) ...[
+                    // Cercle "1" blanc
+                    Container(
+                      width: 52, height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 2),
+                      ),
+                      child: const Center(
+                        child: Text('1', style: TextStyle(
+                          color: Colors.white, fontSize: 24,
+                          fontWeight: FontWeight.w900, height: 1,
+                        )),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text('Photo', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text('Appuyer pour voir',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 11)),
+                  ] else ...[
+                    // État "vue"
+                    const Icon(Icons.camera_alt, color: Colors.white54, size: 32),
+                    const SizedBox(height: 8),
+                    const Text('Photo', style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    const Text('Déjà ouverte', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  ],
+                ],
+              ),
+            ),
+            // Heure en bas à droite
+            Positioned(
+              bottom: 8, right: 10,
+              child: Text(timeStr, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Visionneuse "vue une fois" ────────────────────────────────────────────────
 
 class _ViewOnceViewer extends StatefulWidget {
@@ -687,22 +795,8 @@ class _ViewOnceViewer extends StatefulWidget {
 }
 
 class _ViewOnceViewerState extends State<_ViewOnceViewer> {
-  int _seconds = 10;
-
-  @override
-  void initState() {
-    super.initState();
-    _startTimer();
-  }
-
-  void _startTimer() {
-    Future.delayed(const Duration(seconds: 1), () {
-      if (!mounted) return;
-      setState(() => _seconds--);
-      if (_seconds > 0) _startTimer();
-      else Navigator.pop(context);
-    });
-  }
+  // Fermeture immédiate quand l'utilisateur sort — pas de countdown
+  // La photo disparaît dès qu'on quitte l'écran (pop)
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -711,21 +805,44 @@ class _ViewOnceViewerState extends State<_ViewOnceViewer> {
       backgroundColor: Colors.black,
       foregroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
+      leading: IconButton(
+        icon: const Icon(Icons.close, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
+      ),
       title: Row(children: [
-        const Icon(Icons.timer_outlined, size: 18, color: kOrange),
-        const SizedBox(width: 6),
-        Text('Vue une fois — disparaît dans ${_seconds}s',
-          style: const TextStyle(fontSize: 13, color: Colors.white)),
+        Container(
+          width: 24, height: 24,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.white70, width: 2),
+            shape: BoxShape.circle,
+          ),
+          child: const Center(child: Text('1', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900))),
+        ),
+        const SizedBox(width: 8),
+        const Text('Vue une fois', style: TextStyle(color: Colors.white, fontSize: 14)),
       ]),
+      // Pas de boutons save/share/forward
+      actions: const [],
     ),
     body: Center(
       child: InteractiveViewer(
-        minScale: 0.8, maxScale: 4.0,
-        child: Image.network(widget.url, fit: BoxFit.contain,
-          loadingBuilder: (_, child, p) => p == null ? child
-              : const Center(child: CircularProgressIndicator(color: Colors.white))),
+        minScale: 0.5, maxScale: 4.0,
+        child: Image.network(
+          widget.url,
+          fit: BoxFit.contain,
+          loadingBuilder: (_, child, p) => p == null
+              ? child
+              : Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const CircularProgressIndicator(color: Colors.white),
+                    const SizedBox(height: 12),
+                    Text('Chargement…', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                  ]),
+                ),
+        ),
       ),
     ),
+    // Pas de bottomBar, pas de bouton télécharger
   );
 }
 
@@ -876,50 +993,55 @@ class _InputBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: (sending || uploading) ? null : onSend,
-                child: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: (sending || uploading) ? Colors.grey.shade300 : kOrange,
-                    borderRadius: BorderRadius.circular(12)),
-                  child: (sending || uploading)
-                      ? const Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                ),
-              ),
-
-              // Bouton ① "vue une fois" — visible uniquement si photo en attente
+              // Bouton ① vue une fois — visible si photo en attente, à GAUCHE du send
               if (pendingFileType == 'image') ...[
-                const SizedBox(width: 6),
                 GestureDetector(
                   onTap: onToggleViewOnce,
                   child: Tooltip(
-                    message: isViewOnce ? 'Désactiver vue une fois' : 'Activer vue une fois',
-                    child: Container(
+                    message: isViewOnce ? 'Désactiver — envoyer normalement' : 'Vue une fois (comme Telegram)',
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       width: 40, height: 40,
                       decoration: BoxDecoration(
-                        color: isViewOnce ? kOrange : Colors.transparent,
+                        color: isViewOnce ? const Color(0xFF6B21A8) : Colors.transparent,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: isViewOnce ? kOrange : Colors.grey.shade400,
+                          color: isViewOnce ? const Color(0xFF6B21A8) : Colors.grey.shade400,
                           width: 2,
                         ),
                       ),
                       child: Center(
-                        child: Text(
-                          '1',
+                        child: Text('1',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 17, fontWeight: FontWeight.w900,
                             color: isViewOnce ? Colors.white : Colors.grey.shade400,
-                          ),
-                        ),
+                          )),
                       ),
                     ),
                   ),
                 ),
+                const SizedBox(width: 6),
               ],
+
+              // Bouton envoyer — change d'apparence si view-once activé
+              GestureDetector(
+                onTap: (sending || uploading) ? null : onSend,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: (sending || uploading)
+                        ? Colors.grey.shade300
+                        : (isViewOnce ? const Color(0xFF6B21A8) : kOrange),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: (sending || uploading)
+                      ? const Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : isViewOnce
+                          ? const Center(child: Text('1', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)))
+                          : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                ),
+              ),
             ]),
           ),
         ],
