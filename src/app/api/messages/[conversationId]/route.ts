@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { sendPush } from "@/lib/push";
 
 // GET — messages d'une conversation
 export async function GET(req: NextRequest, { params }: { params: Promise<{ conversationId: string }> }) {
@@ -70,7 +71,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ con
     return NextResponse.json({ error: "Message vide" }, { status: 400 });
   }
 
-  const { data: conv } = await supabase.from("conversations").select("is_active").eq("id", conversationId).single();
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("is_active,participant_1,participant_2")
+    .eq("id", conversationId)
+    .single();
 
   const lastMsgPreview = messageText || (media_url ? "📎 Fichier" : "");
 
@@ -89,6 +94,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ con
   await supabase.from("conversations")
     .update({ last_message: lastMsgPreview, last_message_at: new Date().toISOString(), is_active: true })
     .eq("id", conversationId);
+
+  // Push notification vers le destinataire (hors app, comme WhatsApp)
+  if (conv && message) {
+    const recipientId = conv.participant_1 === user.id ? conv.participant_2 : conv.participant_1;
+    const senderName = (message as any).sender?.full_name ?? "Quelqu'un";
+    const preview = messageText
+      ? messageText.slice(0, 80) + (messageText.length > 80 ? "…" : "")
+      : "📎 Fichier";
+    // Ne pas await pour ne pas bloquer la réponse
+    sendPush(recipientId, senderName, preview, `/messages/${conversationId}`).catch(() => {});
+  }
 
   return NextResponse.json({ message });
 }

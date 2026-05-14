@@ -8,21 +8,28 @@ import type { Conversation, Message } from "@/types/database.types";
 export function useConversations(userId: string) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const { setUnreadMessages } = useNotificationStore();
 
   const loadConversations = useCallback(async () => {
     if (!userId) return;
     try {
-      const { conversations } = await fetch("/api/messages").then((r) => r.json());
-      setConversations(conversations ?? []);
+      const { conversations: convs } = await fetch("/api/messages").then((r) => r.json());
+      setConversations(convs ?? []);
+      // Recalculer le badge à chaque reload (source de vérité = API)
+      const total = (convs ?? []).reduce(
+        (sum: number, c: any) => sum + (c.unread_count ?? 0), 0
+      );
+      setUnreadMessages(total);
     } catch {}
     setLoading(false);
-  }, [userId]);
+  }, [userId, setUnreadMessages]);
 
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
-  // Realtime — met à jour la liste quand un nouveau message arrive ou une conv change
+  // Realtime — reload quand une conversation change (nouveau message, etc.)
+  // Le reload recalcule automatiquement unread_count + badge
   useEffect(() => {
     if (!userId) return;
     const supabase = createClient();
@@ -54,10 +61,10 @@ export function useMessages(conversationId: string, userId: string) {
   const [hasMore, setHasMore] = useState(false);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
   const { setUnreadMessages } = useNotificationStore();
+  // Ensemble des IDs de messages qu'on vient d'envoyer (pour éviter les doublons Realtime)
+  const sentMessageIds = useRef<Set<string>>(new Set());
 
-  // Chargement initial (50 derniers messages)
-  // Quand on ouvre une conversation, les messages sont marqués lus côté API
-  // → on recalcule le total des non lus depuis toutes les conversations
+  // Chargement initial + recalcul badge après lecture
   useEffect(() => {
     if (!conversationId) return;
     setLoading(true);
@@ -67,7 +74,7 @@ export function useMessages(conversationId: string, userId: string) {
         setMessages(msgs ?? []);
         setHasMore(more ?? false);
         setLoading(false);
-        // Recalculer le badge total depuis l'API conversations
+        // L'API a marqué les messages comme lus → recalculer le badge
         fetch("/api/messages")
           .then((r) => r.json())
           .then(({ conversations }) => {
@@ -81,7 +88,7 @@ export function useMessages(conversationId: string, userId: string) {
       .catch(() => setLoading(false));
   }, [conversationId, setUnreadMessages]);
 
-  // Charger les messages plus anciens (scroll vers le haut)
+  // Messages plus anciens (scroll haut)
   const loadMore = useCallback(async () => {
     if (!messages.length || loadingMore || !hasMore) return;
     const oldest = messages[0]?.created_at;
@@ -97,48 +104,43 @@ export function useMessages(conversationId: string, userId: string) {
     setLoadingMore(false);
   }, [conversationId, messages, loadingMore, hasMore]);
 
-  // Abonnement Realtime Supabase
+  // Realtime — reçoit les messages entrants en temps réel
   useEffect(() => {
     if (!conversationId || !userId) return;
     const supabase = createClient();
 
-    // Nettoyage du canal précédent
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-    }
+    if (channelRef.current) supabase.removeChannel(channelRef.current);
 
     const channel = supabase
       .channel(`messages:${conversationId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          const newMsg = payload.new as Message;
-          // Éviter les doublons (le sender voit déjà le message via optimistic update)
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
-        }
-      )
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+        filter: `conversation_id=eq.${conversationId}`,
+      }, (payload) => {
+        const newMsg = payload.new as Message;
+
+        // FIX BUG DOUBLON : ignorer nos propres messages
+        // Ils sont déjà affichés via l'optimistic update, puis remplacés
+        // par la réponse API. Si Realtime arrive avant l'API, sans ce guard
+        // le message apparaîtrait 2 fois.
+        if (newMsg.sender_id === userId) return;
+
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      })
       .subscribe();
 
     channelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [conversationId, userId]);
 
   const sendMessage = useCallback(async (content: string, mediaUrl?: string) => {
     if (!content.trim() && !mediaUrl) return;
 
-    // Optimistic update
     const tempId = `temp-${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
@@ -162,12 +164,13 @@ export function useMessages(conversationId: string, userId: string) {
     if (res.ok) {
       const { message } = await res.json();
       if (message) {
-        // Remplacer le message optimiste par la version DB (avec sender enrichi)
+        // Enregistrer l'ID réel pour éviter le doublon Realtime
+        sentMessageIds.current.add(message.id);
         setMessages((prev) => prev.map((m) => m.id === tempId ? (message as Message) : m));
+        // Nettoyer après 3s (le Realtime aura eu le temps de passer)
+        setTimeout(() => sentMessageIds.current.delete(message.id), 3000);
       }
-      // Si message est null (RLS RETURNING), le message optimiste reste affiché
     } else {
-      // Rollback en cas d'erreur réseau
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
   }, [conversationId, userId]);

@@ -13,10 +13,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     addNotification,
     setFriendRequestCount,
     setUnreadMessages,
-    incrementUnreadMessages,
   } = useNotificationStore();
-  const channelRef    = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
-  const msgChannelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>["channel"]> | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -31,7 +29,6 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       if (notifications) setNotifications(notifications as Notification[]);
       if (requests) setFriendRequestCount((requests as any[]).length);
       if (conversations) {
-        // Compter le total des messages non lus dans toutes les conversations
         const total = (conversations as any[]).reduce(
           (sum: number, c: any) => sum + (c.unread_count ?? 0), 0
         );
@@ -72,31 +69,14 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
 
     channelRef.current = channel;
 
-    // ─── Realtime messages non lus ────────────────────────────────────────────
-    // Incrémenter le badge quand un message arrive dans n'importe quelle
-    // conversation de l'utilisateur (seulement si envoyé par quelqu'un d'autre)
-    if (msgChannelRef.current) supabase.removeChannel(msgChannelRef.current);
-
-    const msgChannel = supabase
-      .channel(`new-messages:${user.id}`)
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-      }, (payload) => {
-        const msg = payload.new as any;
-        // Incrémenter uniquement les messages reçus (pas ceux envoyés par soi)
-        if (msg.sender_id !== user.id) {
-          incrementUnreadMessages();
-        }
-      })
-      .subscribe();
-
-    msgChannelRef.current = msgChannel;
+    // NOTE: Le badge messages n'est plus géré ici par un canal Realtime global.
+    // useConversations (useMessages.ts) recharge les conversations (avec unread_count
+    // exact depuis la DB) à chaque changement via les canaux filtrés par participant.
+    // Cela évite d'incrémenter le badge pour des conversations qui ne concernent pas
+    // l'utilisateur (bug : le canal global recevait TOUS les INSERTs de la table).
 
     return () => {
       supabase.removeChannel(channel);
-      supabase.removeChannel(msgChannel);
       clearInterval(seenInterval);
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
