@@ -3,11 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/models.dart';
 import '../core/theme.dart';
 import 'app_avatar.dart';
 import '../features/profile/profile_screen.dart';
+import '../features/pdf_viewer/pdf_viewer_screen.dart';
 
 // Wrapper pour naviguer vers ProfileScreen depuis PostCard
 // (évite l'import circulaire — PostCard est utilisé dans ProfileScreen)
@@ -422,10 +425,11 @@ class _PdfCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () async {
-        final uri = Uri.parse(pdf.url);
-        if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
-      },
+      // Ouvre le PDF in-app (plus de navigateur externe)
+      onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+        builder: (_) => PdfViewerScreen(url: pdf.url, title: _name),
+        fullscreenDialog: true,
+      )),
       child: Container(
         margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
         decoration: BoxDecoration(
@@ -592,6 +596,7 @@ class _ImageLightbox extends StatefulWidget {
 class _ImageLightboxState extends State<_ImageLightbox> {
   late final PageController _page;
   late int _current;
+  bool _downloading = false;
 
   @override
   void initState() {
@@ -603,13 +608,45 @@ class _ImageLightboxState extends State<_ImageLightbox> {
   @override
   void dispose() { _page.dispose(); super.dispose(); }
 
+  Future<void> _downloadImage(String url) async {
+    setState(() => _downloading = true);
+    try {
+      // Demander permission sur Android < 13
+      final status = await Permission.photos.request();
+      if (!status.isGranted && !status.isLimited) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission galerie refusée')),
+        );
+        return;
+      }
+      final resp = await http.get(Uri.parse(url));
+      final result = await ImageGallerySaver.saveImage(
+        resp.bodyBytes,
+        quality: 100,
+        name: 'studys_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      if (!mounted) return;
+      final success = result['isSuccess'] == true || result['filePath'] != null;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(success ? 'Image enregistrée dans la galerie !' : 'Erreur lors de l\'enregistrement'),
+        backgroundColor: success ? kGreen : Colors.red,
+      ));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de télécharger l\'image')),
+      );
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Images avec zoom
+          // Images avec zoom + swipe
           PageView.builder(
             controller: _page,
             itemCount: widget.images.length,
@@ -628,30 +665,46 @@ class _ImageLightboxState extends State<_ImageLightbox> {
             ),
           ),
 
-          // Bouton fermer
+          // Barre supérieure : fermer + compteur + télécharger
           Positioned(
             top: 0, left: 0, right: 0,
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                    colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
+                  ),
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Bouton fermer
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                      icon: const Icon(Icons.close, color: Colors.white, size: 24),
                       onPressed: () => Navigator.pop(context),
                     ),
+                    const Spacer(),
+                    // Compteur
                     if (widget.images.length > 1)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.black54,
+                          color: Colors.black.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text('${_current + 1} / ${widget.images.length}',
                           style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500)),
                       ),
-                    const SizedBox(width: 48),
+                    const Spacer(),
+                    // Bouton télécharger
+                    IconButton(
+                      icon: _downloading
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.download_outlined, color: Colors.white, size: 24),
+                      onPressed: _downloading ? null : () => _downloadImage(widget.images[_current]),
+                      tooltip: 'Enregistrer dans la galerie',
+                    ),
                   ],
                 ),
               ),

@@ -10,6 +10,8 @@
 	<string>STUDY'S</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>STUDY'S a besoin d'accéder à vos photos pour les publier.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>STUDY'S a besoin d'accéder à votre galerie pour sauvegarder les images.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>STUDY'S a besoin d'accéder à votre caméra pour prendre des photos.</string>
 	<key>NSMicrophoneUsageDescription</key>
