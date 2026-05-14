@@ -121,11 +121,13 @@ describe("proxy middleware", () => {
       expect(res.headers.get("location")).toContain("/feed");
     });
 
-    it("redirige /verify-otp vers /feed si déjà connecté", async () => {
+    it("laisse passer /verify-otp même si déjà connecté (process OTP en cours)", async () => {
+      // /verify-otp est intentionnellement exclu des pages "redirect si auth" :
+      // verifyOtp() crée la session pendant que l'utilisateur est sur cette page
+      // → rediriger depuis /verify-otp casserait le flux OTP
       mockSupabase(true);
       const res = await proxy(makeRequest("/verify-otp"));
-      expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toContain("/feed");
+      expect(res.status).not.toBe(307);
     });
 
     it("laisse passer /about même si connecté", async () => {

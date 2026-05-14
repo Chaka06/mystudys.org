@@ -44,51 +44,66 @@ export function VerifyOtpContent() {
   };
 
   const verifyOtp = async (code: string) => {
-    if (!email) return;
+    if (!email || loading) return;
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: "signup" });
 
-    if (error) {
-      toast.error("Code incorrect ou expiré. Réessayez.");
-      setOtp(["", "", "", "", "", ""]);
-      inputs.current[0]?.focus();
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: "signup",
+      });
+
+      if (error) {
+        toast.error("Code incorrect ou expiré. Réessayez.");
+        setOtp(["", "", "", "", "", ""]);
+        inputs.current[0]?.focus();
+        setLoading(false);
+        return;
+      }
+
+      // Vérification OK — la session est maintenant dans les cookies.
+      //
+      // Synchronisation auth en 2 étapes :
+      //
+      // 1. router.refresh() : invalide le cache RSC de Next.js.
+      //    Sans ça, FeedPage utilise un cache pré-authentification où
+      //    user=null → redirect("/login") → middleware voit session +
+      //    /login dans les anciennes AUTH_PATHS → boucle infinie.
+      //    Maintenant /verify-otp est retiré des pages "redirect si auth",
+      //    mais refresh() reste nécessaire pour le cache.
+      //
+      // 2. router.replace("/feed") : navigation propre sans historique.
+      //    replace() empêche le retour arrière vers /verify-otp.
+
+      toast.success("Compte vérifié avec succès !");
+      router.refresh();
+      router.replace("/feed");
+
+    } catch {
+      toast.error("Erreur réseau. Réessayez.");
       setLoading(false);
-      return;
     }
-
-    toast.success("Compte vérifié avec succès !");
-
-    // CORRECTION CRITIQUE :
-    // 1. router.refresh() invalide le cache RSC de Next.js
-    //    → les Server Components se ré-exécutent avec la nouvelle session
-    //    → sans ça, FeedPage voit user=null et redirige vers /login
-    //    → ce qui crée une boucle /feed → /login → /feed (middleware AUTH_PATHS)
-    //    → et laisse le spinner bloqué indéfiniment
-    //
-    // 2. router.replace("/feed") au lieu de push pour éviter que
-    //    le bouton "retour" ramène vers /verify-otp après connexion
-    router.refresh();
-    router.replace("/feed");
-
-    // Pas de setLoading(false) ici — le composant va se démonter
-    // quand la navigation vers /feed se complète.
-    // Si on le met avant router.replace, le bouton re-cliquable
-    // pendant la navigation crée des doubles soumissions.
   };
 
   const handleResend = async () => {
-    if (countdown > 0 || !email) return;
+    if (countdown > 0 || !email || resending) return;
     setResending(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.resend({ type: "signup", email });
-    if (error) {
-      toast.error("Erreur lors du renvoi. Réessayez.");
-    } else {
-      setCountdown(60);
-      toast.success("Code renvoyé !");
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.resend({ type: "signup", email });
+      if (error) {
+        toast.error("Erreur lors du renvoi. Réessayez.");
+      } else {
+        setCountdown(60);
+        toast.success("Code renvoyé !");
+      }
+    } catch {
+      toast.error("Erreur réseau.");
+    } finally {
+      setResending(false);
     }
-    setResending(false);
   };
 
   return (
@@ -100,7 +115,14 @@ export function VerifyOtpContent() {
       >
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex flex-col items-center gap-2">
-            <Image src="/logostudys.png" alt="STUDY'S" width={64} height={64} style={{ width: "auto", height: "64px" }} className="object-contain" />
+            <Image
+              src="/logostudys.png"
+              alt="STUDY'S"
+              width={64}
+              height={64}
+              style={{ width: "auto", height: "64px" }}
+              className="object-contain"
+            />
             <h1 className="text-2xl font-bold">
               <span className="text-brand-orange">STUDY</span>
               <span className="text-brand-green">'S</span>
@@ -132,6 +154,7 @@ export function VerifyOtpContent() {
                   onChange={(e) => handleChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
                   disabled={loading}
+                  aria-label={`Chiffre ${i + 1} du code`}
                   className="h-12 w-10 text-center text-lg font-bold rounded-xl border-2 border-input bg-background focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/30 outline-none transition-all disabled:opacity-50"
                 />
               ))}
@@ -143,7 +166,7 @@ export function VerifyOtpContent() {
               loading={loading}
               disabled={otp.some((d) => !d) || loading}
             >
-              {loading ? "Vérification…" : "Vérifier"}
+              {loading ? "Vérification en cours…" : "Vérifier mon compte"}
             </Button>
 
             <div className="text-center mt-4">

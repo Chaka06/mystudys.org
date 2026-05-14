@@ -6,7 +6,13 @@ const PUBLIC_PATHS = [
   "/forgot-password", "/reset-password",
   "/about", "/privacy", "/terms", "/contact",
 ];
-const AUTH_PATHS = ["/login", "/register", "/verify-otp"];
+
+// Pages où un utilisateur DÉJÀ connecté avec un profil complet
+// n'a rien à faire → rediriger vers /feed
+// NOTE : /verify-otp est intentionnellement ABSENT —
+// la vérification OTP crée la session pendant que l'utilisateur
+// est sur cette page, donc on ne peut pas la rediriger en cours de process
+const REDIRECT_IF_AUTHED = ["/login", "/register"];
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -30,14 +36,13 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // IMPORTANT : getSession() peut rafraîchir le token et appeler setAll()
-  // Les nouveaux cookies DOIVENT être copiés sur la réponse de redirection
-  // sinon le navigateur ne reçoit jamais le token rafraîchi → boucle infinie
+  // getSession() lit le cookie JWT localement — pas d'appel réseau
+  // Les cookies fraîchement écrits par verifyOtp() sont déjà dans la requête
   const { data: { session } } = await supabase.auth.getSession();
 
   const path = request.nextUrl.pathname;
 
-  // Helper : crée une redirection en préservant les cookies Supabase
+  // Helper : redirection en préservant les cookies Supabase
   const redirect = (pathname: string, params?: Record<string, string>) => {
     const url = request.nextUrl.clone();
     url.pathname = pathname;
@@ -46,7 +51,6 @@ export async function proxy(request: NextRequest) {
       Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
     }
     const res = NextResponse.redirect(url);
-    // Copier tous les cookies Supabase (token rafraîchi inclus)
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       res.cookies.set(cookie.name, cookie.value, cookie as any);
     });
@@ -58,8 +62,9 @@ export async function proxy(request: NextRequest) {
     return redirect("/login", { redirectTo: path });
   }
 
-  // Utilisateur connecté sur une page d'auth → /feed
-  if (session && AUTH_PATHS.includes(path)) {
+  // Utilisateur déjà connecté sur login/register → /feed
+  // ⚠️ /verify-otp est exclu : la session peut être créée pendant la vérification
+  if (session && REDIRECT_IF_AUTHED.includes(path)) {
     return redirect("/feed");
   }
 
