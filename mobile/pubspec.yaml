@@ -1,0 +1,53 @@
+name: studys
+description: "STUDY'S — Réseau social étudiant ivoirien"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Backend Supabase
+  supabase_flutter: ^2.8.4
+
+  # Navigation
+  go_router: ^14.8.1
+
+  # State management
+  provider: ^6.1.2
+
+  # Images & médias
+  cached_network_image: ^3.4.1
+  image_picker: ^1.1.2
+  file_picker: ^8.1.7
+
+  # Stockage local (thème, session)
+  shared_preferences: ^2.5.3
+
+  # UI
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  timeago: ^3.7.0
+
+  # Utils
+  connectivity_plus: ^6.1.4
+  intl: ^0.20.2
+  url_launcher: ^6.3.1
+
+  # Pagination infinie
+  infinite_scroll_pagination: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/
