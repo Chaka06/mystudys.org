@@ -3,6 +3,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+const ALLOWED_POST_FIELDS = new Set([
+  "content", "post_type", "subject_name", "professor_name",
+  "academic_level", "institution", "exam_year",
+  "event_date", "event_location", "event_url",
+]);
+
 export async function createPostAction(payload: {
   content: string | null;
   post_type: string;
@@ -12,15 +18,22 @@ export async function createPostAction(payload: {
   exam_year?: number | null;
   event_date?: string | null;
   event_location?: string | null;
+  event_url?: string | null;
   institution?: string | null;
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Non authentifié" };
 
+  // Whitelist stricte : empêche injection de champs sensibles
+  const sanitized: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(payload)) {
+    if (ALLOWED_POST_FIELDS.has(k)) sanitized[k] = v;
+  }
+
   const { data, error } = await supabase
     .from("posts")
-    .insert({ ...payload, author_id: user.id, moderation_status: "approved" })
+    .insert({ ...sanitized, author_id: user.id, moderation_status: "approved" })
     .select("id")
     .single();
 

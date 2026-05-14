@@ -58,10 +58,15 @@ export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: Pos
   const handleLike = async () => {
     if (!profile || isLiking) return;
     setIsLiking(true);
+    const oldLiked = liked;
     const newLiked = !liked;
     setLiked(newLiked);
     setLikeCount((c) => c + (newLiked ? 1 : -1));
-    await toggleLikeAction(post.id, liked);
+    const result = await toggleLikeAction(post.id, oldLiked);
+    if (result?.error) {
+      setLiked(oldLiked);
+      setLikeCount((c) => c + (oldLiked ? 1 : -1));
+    }
     setIsLiking(false);
   };
 
@@ -306,7 +311,13 @@ export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: Pos
       </Card>
     </div>
   );
-}, (prev, next) => prev.post.id === next.post.id && prev.post.like_count === next.post.like_count && prev.post.comment_count === next.post.comment_count);
+}, (prev, next) =>
+  prev.post.id === next.post.id &&
+  prev.post.like_count === next.post.like_count &&
+  prev.post.comment_count === next.post.comment_count &&
+  prev.post.liked_by_user === next.post.liked_by_user &&
+  prev.post.saved_by_user === next.post.saved_by_user
+);
 
 function ImageGrid({ images }: { images: { url: string }[] }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);

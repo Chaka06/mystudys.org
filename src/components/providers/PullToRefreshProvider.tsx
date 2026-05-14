@@ -34,13 +34,19 @@ export function PullToRefreshProvider({ children }: { children: React.ReactNode 
     setPullY(0);
   }, [refreshing, router]);
 
+  // Refs pour accéder à pullY et refreshing sans les mettre en dépendance
+  const pullYRef = useRef(0);
+  const refreshingRef = useRef(false);
+
+  useEffect(() => { pullYRef.current = pullY; }, [pullY]);
+  useEffect(() => { refreshingRef.current = refreshing; }, [refreshing]);
+
   useEffect(() => {
-    if (disabled) return; // Pas de pull-to-refresh dans le chat
+    if (disabled) return;
     const el = containerRef.current;
     if (!el) return;
 
     const onTouchStart = (e: TouchEvent) => {
-      // Seulement si scroll en haut de page
       const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
       if (scrollTop > 5) return;
       startY.current = e.touches[0].clientY;
@@ -48,26 +54,21 @@ export function PullToRefreshProvider({ children }: { children: React.ReactNode 
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (!pulling.current || refreshing) return;
+      if (!pulling.current || refreshingRef.current) return;
       const delta = e.touches[0].clientY - startY.current;
       if (delta < 0) { pulling.current = false; return; }
-
-      // Résistance progressive (comme iOS)
       const capped = Math.min(delta * RESIST_RATIO, MAX_PULL);
       setPullY(capped);
       setTriggered(capped >= THRESHOLD);
-
-      // Empêcher le scroll natif pendant le tirage
       if (delta > 10) e.preventDefault();
     };
 
     const onTouchEnd = () => {
       if (!pulling.current) return;
       pulling.current = false;
-      if (pullY >= THRESHOLD && !refreshing) {
+      if (pullYRef.current >= THRESHOLD && !refreshingRef.current) {
         doRefresh();
       } else {
-        // Rebond retour
         setPullY(0);
         setTriggered(false);
       }
@@ -81,7 +82,7 @@ export function PullToRefreshProvider({ children }: { children: React.ReactNode 
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
     };
-  }, [pullY, refreshing, doRefresh]);
+  }, [disabled, doRefresh]); // pullY et refreshing retirés des deps → plus d'oscillation
 
   const showIndicator = pullY > 10 || refreshing;
   const rotation = refreshing ? undefined : `rotate(${(pullY / MAX_PULL) * 360}deg)`;

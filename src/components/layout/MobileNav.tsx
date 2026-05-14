@@ -2,20 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Users, PlusSquare, Bell, User } from "lucide-react";
+import { Home, Users, PlusSquare, Bell, User, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotificationStore } from "@/stores/notificationStore";
-// unreadMessages importé directement depuis le store
 
 const navItems = [
-  { href: "/feed", icon: Home, label: "Accueil" },
-  { href: "/friends", icon: Users, label: "Amis" },
-  { href: "/create", icon: PlusSquare, label: "Publier",  highlight: true },
-  { href: "/notifications", icon: Bell, label: "Alertes", badge: true },
-  { href: "/profile/me", icon: User, label: "Profil" },
+  { href: "/feed",          icon: Home,          label: "Accueil" },
+  { href: "/messages",      icon: MessageCircle, label: "Messages" },
+  { href: "/create",        icon: PlusSquare,    label: "Publier", highlight: true },
+  { href: "/notifications", icon: Bell,          label: "Alertes", badge: true },
+  { href: "/profile/me",    icon: User,          label: "Profil" },
 ];
 
 export function MobileNav() {
@@ -71,6 +70,7 @@ export function MobileNav() {
                       {unreadMessages > 99 ? "99+" : unreadMessages}
                     </Badge>
                   )}
+                  {/* Badge amis (déplacé — /friends retiré des navItems) */}
                 </div>
                 {!item.highlight && (
                   <span className={`text-[10px] ${active ? "text-brand-orange font-semibold" : "text-muted-foreground"}`}>

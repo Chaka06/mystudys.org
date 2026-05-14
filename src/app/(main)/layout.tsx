@@ -8,6 +8,7 @@ import { MainContent } from "@/components/layout/MainContent";
 import { LayoutContainer } from "@/components/layout/LayoutContainer";
 import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
 import { PullToRefreshProvider } from "@/components/providers/PullToRefreshProvider";
+import { OfflineProvider } from "@/components/providers/OfflineProvider";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -16,6 +17,7 @@ export default async function MainLayout({ children }: { children: React.ReactNo
 
   return (
     <RealtimeProvider>
+      <OfflineProvider />
       <div className="min-h-screen bg-[#F8F9FB] flex flex-col">
         <Navbar />
         <LayoutContainer>

@@ -24,6 +24,17 @@ export default async function ProfilePage({ params }: Props) {
 
   if (!profile) notFound();
 
+  // Profil privé : seuls soi-même et ses amis peuvent voir
+  if (!profile.is_public && profile.id !== user.id) {
+    const { data: friendship } = await supabase
+      .from("friendships")
+      .select("id")
+      .or(`and(requester_id.eq.${user.id},addressee_id.eq.${profile.id}),and(requester_id.eq.${profile.id},addressee_id.eq.${user.id})`)
+      .eq("status", "accepted")
+      .maybeSingle();
+    if (!friendship) notFound();
+  }
+
   let friendshipStatus = null;
   let friendshipId: string | undefined;
   let iAmRequester: boolean = false;

@@ -1,5 +1,5 @@
-const CACHE = 'studys-v1';
-const OFFLINE_URL = '/';
+const CACHE = 'studys-v2';
+const OFFLINE_URL = '/feed';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -27,7 +27,12 @@ self.addEventListener('fetch', (e) => {
 // ─── Push notifications ────────────────────────────────────────────────────
 self.addEventListener('push', (e) => {
   if (!e.data) return;
-  const data = e.data.json();
+  let data;
+  try {
+    data = e.data.json();
+  } catch {
+    data = { title: "STUDY'S", body: e.data.text(), url: '/notifications' };
+  }
   e.waitUntil(
     self.registration.showNotification(data.title ?? "STUDY'S", {
       body: data.body ?? "",
@@ -41,12 +46,14 @@ self.addEventListener('push', (e) => {
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const url = e.notification.data?.url ?? '/notifications';
+  let url = e.notification.data?.url ?? '/notifications';
+  // Sécurité : l'URL doit être locale (commence par /)
+  if (!url.startsWith('/')) url = '/notifications';
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       const existing = list.find((c) => c.url.includes(self.location.origin));
       if (existing) { existing.focus(); existing.navigate(url); }
-      else clients.openWindow(url);
+      else clients.openWindow(self.location.origin + url);
     })
   );
 });

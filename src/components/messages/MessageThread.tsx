@@ -65,10 +65,18 @@ export function MessageThread({ conversation, currentUserId: currentUserIdProp }
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastMessageIdRef = useRef<string>("");
   const other = conversation.other_participant;
 
+  // Scroll to bottom uniquement quand un NOUVEAU message arrive (pas lors du loadMore)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.id !== lastMessageIdRef.current) {
+      lastMessageIdRef.current = lastMsg.id;
+      requestAnimationFrame(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
+    }
   }, [messages]);
 
   const handleFileSelect = (file: File) => {
@@ -468,6 +476,12 @@ export function MessageThread({ conversation, currentUserId: currentUserIdProp }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+              }}
+              onFocus={() => {
+                // Scroll vers le bas quand le clavier virtuel s'ouvre (mobile)
+                setTimeout(() => {
+                  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                }, 300);
               }}
               placeholder="Écrire un message…"
               rows={1}

@@ -36,12 +36,21 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       }
     }).catch(() => {});
 
-    // last_seen_at
+    // last_seen_at + is_active
     const updateLastSeen = () => {
-      supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", user.id).then(() => {});
+      supabase.from("profiles")
+        .update({ last_seen_at: new Date().toISOString(), is_active: true })
+        .eq("id", user.id).then(() => {});
+    };
+    const setOffline = () => {
+      supabase.from("profiles").update({ is_active: false }).eq("id", user.id).then(() => {});
     };
     updateLastSeen();
-    const seenInterval = setInterval(updateLastSeen, 5 * 60 * 1000);
+    const seenInterval = setInterval(updateLastSeen, 60_000); // toutes les 1 min
+
+    // Marquer offline quand l'onglet est caché ou fermé
+    const handleVisibility = () => { if (document.hidden) setOffline(); else updateLastSeen(); };
+    document.addEventListener("visibilitychange", handleVisibility);
 
     // ─── Realtime notifications ───────────────────────────────────────────────
     if (channelRef.current) supabase.removeChannel(channelRef.current);
@@ -78,6 +87,8 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
       clearInterval(seenInterval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      setOffline();
     };
   }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 

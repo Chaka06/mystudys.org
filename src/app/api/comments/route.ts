@@ -48,20 +48,34 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Notifier l'auteur du post
+  // Notifications (fire-and-forget, ne bloque pas la réponse)
   const { data: post } = await supabase.from("posts").select("author_id").eq("id", post_id).single();
-  if (post && post.author_id !== user.id) {
-    const { data: sender } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
-    const admin = await createAdminClient();
-    await admin.from("notifications").insert({
-      recipient_id: post.author_id, sender_id: user.id, type: "comment",
-      title: "Nouveau commentaire", body: `${sender?.full_name ?? "Quelqu'un"} a commenté votre publication`,
-      resource_type: "post", resource_id: post_id,
-    });
+  const { data: sender } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+  const senderName = sender?.full_name ?? "Quelqu'un";
+  const admin = await createAdminClient();
+
+  if (parent_id) {
+    // Réponse à un commentaire → notifier l'auteur du commentaire parent
+    const { data: parentComment } = await supabase
+      .from("comments").select("author_id").eq("id", parent_id).single();
+    if (parentComment && parentComment.author_id !== user.id) {
+      admin.from("notifications").insert({
+        recipient_id: parentComment.author_id, sender_id: user.id, type: "reply",
+        title: "Nouvelle réponse", body: `${senderName} a répondu à votre commentaire`,
+        resource_type: "post", resource_id: post_id,
+      }).then(() => {});
+      sendPush(parentComment.author_id, senderName, "a répondu à votre commentaire", `/post/${post_id}`).catch(() => {});
+    }
   }
 
+  // Notifier l'auteur du post (sauf si c'est lui qui commente ou qui répond)
   if (post && post.author_id !== user.id) {
-    await sendPush(post.author_id, "Nouveau commentaire", `Quelqu'un a commenté votre publication`, `/post/${post_id}`);
+    admin.from("notifications").insert({
+      recipient_id: post.author_id, sender_id: user.id, type: "comment",
+      title: "Nouveau commentaire", body: `${senderName} a commenté votre publication`,
+      resource_type: "post", resource_id: post_id,
+    }).then(() => {});
+    sendPush(post.author_id, senderName, "a commenté votre publication", `/post/${post_id}`).catch(() => {});
   }
 
   return NextResponse.json({ comment: data });

@@ -42,7 +42,8 @@ export function ProfilePageClient({
     setRefreshKey((k) => k + 1);
   }, [currentUserId, profile.id]);
 
-  // Realtime — refresh statut amitié quand une amitié impliquant ces deux users change
+  // Realtime — refresh statut amitié quand une amitié change
+  // handleFriendshipChange retiré des deps pour éviter les réabonnements
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
@@ -61,7 +62,7 @@ export function ProfilePageClient({
       }, handleFriendshipChange)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [currentUserId, profile.id, handleFriendshipChange]);
+  }, [currentUserId, profile.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4 pb-20 lg:pb-4">
