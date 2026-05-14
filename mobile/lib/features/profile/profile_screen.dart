@@ -130,120 +130,157 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: bg,
       body: CustomScrollView(
         slivers: [
-          // ── Cover photo + AppBar ────────────────────────────
-          SliverAppBar(
-            expandedHeight: 180,
-            pinned: true,
-            backgroundColor: isDark ? const Color(0xFF1E2025) : Colors.white,
-            surfaceTintColor: Colors.transparent,
-            leading: const BackButton(),
-            actions: [
-              if (_isOwnProfile)
-                IconButton(
-                  icon: const Icon(Icons.settings_outlined),
-                  onPressed: () => context.go('/settings'),
-                ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.pin,
-              background: p.coverUrl != null
-                  ? CachedNetworkImage(imageUrl: p.coverUrl!, fit: BoxFit.cover)
-                  : Container(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [kOrange, Color(0xFFEA580C), kGreen],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight,
-                        ),
-                      ),
-                    ),
-            ),
-          ),
-
-          // ── Header profil ────────────────────────────────────
+          // ── Header : cover + avatar en overlap (style Instagram/web) ──
           SliverToBoxAdapter(
             child: Container(
               color: bg,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Avatar + boutons
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        // Avatar avec badge vérifié en bas-droite
-                        Transform.translate(
-                          offset: const Offset(0, -28),
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: bg, width: 4),
-                                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8)],
+                  // Stack cover + boutons overlay + avatar à cheval
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Cover photo (160px)
+                      SizedBox(
+                        height: 160,
+                        width: double.infinity,
+                        child: p.coverUrl != null
+                            ? CachedNetworkImage(imageUrl: p.coverUrl!, fit: BoxFit.cover)
+                            : Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [kOrange, Color(0xFFEA580C), kGreen],
+                                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                                  ),
                                 ),
-                                child: AppAvatar(url: p.avatarUrl, initials: p.initials, size: 80),
                               ),
-                              if (p.isVerified)
-                                Positioned(
-                                  bottom: 2, right: 2,
-                                  child: Container(
-                                    width: 24, height: 24,
-                                    decoration: BoxDecoration(
-                                      color: kOrange, shape: BoxShape.circle,
-                                      border: Border.all(color: bg, width: 2),
-                                    ),
-                                    child: const Icon(Icons.check, color: Colors.white, size: 13),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Boutons d'action
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Wrap(
-                              alignment: WrapAlignment.end,
-                              spacing: 8, runSpacing: 8,
-                              children: [
-                                if (!_isOwnProfile) ...[
-                                  OutlinedButton.icon(
-                                    onPressed: _openMessage,
-                                    icon: const Icon(Icons.chat_bubble_outline, size: 15),
-                                    label: const Text('Message'),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                  _FriendButton(
-                                    status: _friendshipStatus,
-                                    iAmRequester: _iAmRequester,
-                                    profileId: p.id,
-                                    friendshipId: _friendshipId,
-                                    onAction: _sendFriendAction,
-                                  ),
-                                ] else
-                                  ElevatedButton.icon(
-                                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileEditorScreen())),
-                                    icon: const Icon(Icons.edit_outlined, size: 15),
-                                    label: const Text('Modifier'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: isDark ? const Color(0xFF2D3139) : Colors.grey.shade100,
-                                      foregroundColor: isDark ? Colors.white : Colors.black87,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                              ],
+                      ),
+
+                      // Gradient en bas de la cover pour lisibilité des boutons
+                      Positioned(
+                        bottom: 0, left: 0, right: 0,
+                        child: Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.25)],
                             ),
                           ),
                         ),
+                      ),
+
+                      // Bouton retour (top-left)
+                      Positioned(
+                        top: 0, left: 0,
+                        child: SafeArea(
+                          bottom: false,
+                          child: Container(
+                            margin: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                              onPressed: () => Navigator.of(context).pop(),
+                              constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                              padding: const EdgeInsets.all(8),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Bouton paramètres (top-right, propre profil)
+                      if (_isOwnProfile)
+                        Positioned(
+                          top: 0, right: 0,
+                          child: SafeArea(
+                            bottom: false,
+                            child: Container(
+                              margin: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                icon: const Icon(Icons.settings_outlined, color: Colors.white, size: 20),
+                                onPressed: () => context.go('/settings'),
+                                constraints: const BoxConstraints(minWidth: 38, minHeight: 38),
+                                padding: const EdgeInsets.all(8),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                      // Avatar positionné à cheval sur la cover (bottom: -44)
+                      Positioned(
+                        bottom: -44, left: 16,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: bg, width: 4),
+                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10)],
+                              ),
+                              child: AppAvatar(url: p.avatarUrl, initials: p.initials, size: 84),
+                            ),
+                            if (p.isVerified)
+                              Positioned(
+                                bottom: 4, right: 4,
+                                child: Container(
+                                  width: 24, height: 24,
+                                  decoration: BoxDecoration(
+                                    color: kOrange, shape: BoxShape.circle,
+                                    border: Border.all(color: bg, width: 2),
+                                  ),
+                                  child: const Icon(Icons.check, color: Colors.white, size: 13),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Espace de compensation pour l'avatar qui déborde + boutons
+                  const SizedBox(height: 52),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (!_isOwnProfile) ...[
+                          OutlinedButton.icon(
+                            onPressed: _openMessage,
+                            icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                            label: const Text('Message'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _FriendButton(
+                            status: _friendshipStatus,
+                            iAmRequester: _iAmRequester,
+                            profileId: p.id,
+                            friendshipId: _friendshipId,
+                            onAction: _sendFriendAction,
+                          ),
+                        ] else
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileEditorScreen())),
+                            icon: const Icon(Icons.edit_outlined, size: 15),
+                            label: const Text('Modifier le profil'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ),
                       ],
                     ),
                   ),
