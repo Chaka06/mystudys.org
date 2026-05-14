@@ -36,16 +36,21 @@ export default async function ConversationPage({ params }: Props) {
   };
 
   return (
-    <div className="flex h-[calc(100svh-5rem)] rounded-2xl border border-border/60 bg-card overflow-hidden shadow-sm">
-      {/* Panneau gauche : liste des conversations (caché sur mobile) */}
+    <div className={[
+      "flex bg-card overflow-hidden",
+      // Mobile : plein écran (Navbar et MobileNav sont cachées sur cette route)
+      // dvh = dynamic viewport height → se réajuste quand le clavier ouvre
+      "h-dvh lg:h-[calc(100svh-5rem)]",
+      // Desktop : bordures et ombre
+      "lg:rounded-2xl lg:border lg:border-border/60 lg:shadow-sm",
+    ].join(" ")}>
+      {/* Panneau gauche : liste des conversations (desktop uniquement) */}
       <div className="hidden lg:flex w-72 shrink-0 border-r border-border/60 flex-col">
         <ConversationList userId={user.id} activeId={conversationId} />
       </div>
 
-      {/* Panneau droit : fil de discussion */}
+      {/* Chat — prend tout l'espace disponible */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* currentUserId passé depuis le serveur — source de vérité fiable
-            (évite la dépendance au store Zustand qui peut ne pas être hydraté) */}
         <MessageThread conversation={enriched} currentUserId={user.id} />
       </div>
     </div>

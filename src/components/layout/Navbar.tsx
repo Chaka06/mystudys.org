@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   Search, Bell, MessageCircle, Home, Menu, X, LogOut, Settings, User, BookMarked
@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useNotificationStore } from "@/stores/notificationStore";
-import { getInitials } from "@/lib/utils";
+import { getInitials, cn } from "@/lib/utils";
 
 export function Navbar() {
   const { profile, signOut } = useAuth();
@@ -34,8 +34,16 @@ export function Navbar() {
     }
   };
 
+  // Masquer la Navbar globale sur mobile dans les conversations
+  // Le MessageThread a son propre header (flèche retour + nom utilisateur)
+  const pathname = usePathname();
+  const isInConversation = /^\/messages\/.+/.test(pathname);
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className={cn(
+      "sticky top-0 z-50 w-full border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+      isInConversation && "hidden lg:block" // mode immersif mobile dans le chat
+    )}>
       <nav className="container flex h-14 items-center gap-3">
         {/* Logo */}
         <Link href="/feed" className="flex items-center mr-2 shrink-0">

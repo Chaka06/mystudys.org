@@ -24,6 +24,11 @@ export function MobileNav() {
   const { profile } = useAuth();
   const { friendRequestCount: friendRequests, unreadMessages } = useNotificationStore();
 
+  // Sur mobile, masquer la nav dans les conversations (mode immersif type WhatsApp)
+  // Le chat a son propre header avec flèche retour
+  const isInConversation = /^\/messages\/.+/.test(pathname);
+  if (isInConversation) return null;
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
       <div className="border-t border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90 pb-safe">

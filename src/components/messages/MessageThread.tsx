@@ -123,10 +123,12 @@ export function MessageThread({ conversation, currentUserId: currentUserIdProp }
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full bg-[#F0F2F5] dark:bg-background">
+    // h-full + overflow-hidden garantit que le chat occupe tout l'espace disponible
+    // Sur mobile le parent fait h-dvh, ici flex-col + h-full = plein écran immersif
+    <div className="flex flex-col h-full overflow-hidden bg-[#F0F2F5] dark:bg-background">
 
-      {/* ── Header ── */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-background border-b border-border/60 shadow-sm shrink-0">
+      {/* ── Header ── pt-safe = padding pour la caméra iOS en mode immersif */}
+      <div className="flex items-center gap-3 px-4 py-3 pt-safe bg-background border-b border-border/60 shadow-sm shrink-0">
         <Button variant="ghost" size="icon-sm" asChild className="lg:hidden -ml-1">
           <Link href="/messages"><ArrowLeft className="h-5 w-5" /></Link>
         </Button>
@@ -397,8 +399,8 @@ export function MessageThread({ conversation, currentUserId: currentUserIdProp }
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Zone de saisie ── */}
-      <div className="shrink-0 bg-background border-t border-border/60 px-3 py-3 space-y-2">
+      {/* ── Zone de saisie ── pb-safe = espace pour le bouton home iOS */}
+      <div className="shrink-0 bg-background border-t border-border/60 px-3 py-3 pb-safe space-y-2">
 
         {/* Aperçu fichier en attente */}
         <AnimatePresence>

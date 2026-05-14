@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 
 const THRESHOLD    = 80;  // px à tirer pour déclencher le refresh
@@ -10,6 +10,9 @@ const RESIST_RATIO = 0.4; // résistance au tirage (comme iOS)
 
 export function PullToRefreshProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
+  // Désactiver le pull-to-refresh dans les conversations (scroll vertical ≠ refresh)
+  const disabled = /^\/messages\/.+/.test(pathname);
   const [pullY, setPullY]         = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [triggered, setTriggered] = useState(false);
@@ -32,6 +35,7 @@ export function PullToRefreshProvider({ children }: { children: React.ReactNode 
   }, [refreshing, router]);
 
   useEffect(() => {
+    if (disabled) return; // Pas de pull-to-refresh dans le chat
     const el = containerRef.current;
     if (!el) return;
 
