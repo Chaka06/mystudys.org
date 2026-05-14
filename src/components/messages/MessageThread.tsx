@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, ArrowLeft, Check, CheckCheck,
@@ -10,9 +10,11 @@ import Link from "next/link";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ImageLightbox } from "@/components/ui/ImageLightbox";
 import { LinkPreviewCard, extractFirstUrl } from "@/components/ui/LinkPreviewCard";
-import { PdfThumbnail } from "@/components/ui/PdfThumbnail";
+
+// Chargement différé — pdfjs-dist (3MB) et ImageLightbox ne doivent pas alourdir les messages
+const ImageLightbox = lazy(() => import("@/components/ui/ImageLightbox").then(m => ({ default: m.ImageLightbox })));
+const PdfThumbnail  = lazy(() => import("@/components/ui/PdfThumbnail").then(m => ({ default: m.PdfThumbnail })));
 import { useMessages } from "@/hooks/useMessages";
 import { useAuthStore } from "@/stores/authStore";
 import { formatMessageTime, getInitials, cn } from "@/lib/utils";
@@ -289,8 +291,9 @@ export function MessageThread({ conversation }: Props) {
                           : "border-border/60 rounded-bl-sm"
                       )}
                     >
-                      {/* Vraie prévisualisation page 1 */}
-                      <PdfThumbnail url={msg.media_url!} height={140} />
+                      <Suspense fallback={<div className="h-[140px] bg-gray-50 animate-pulse" />}>
+                        <PdfThumbnail url={msg.media_url!} height={140} />
+                      </Suspense>
                       {/* Pied de carte */}
                       <div className={cn(
                         "flex items-center gap-2.5 px-3 py-2.5 border-t",
@@ -464,7 +467,9 @@ export function MessageThread({ conversation }: Props) {
 
       {/* Lightbox */}
       {lightboxUrl && (
-        <ImageLightbox images={[lightboxUrl]} onClose={() => setLightboxUrl(null)} />
+        <Suspense fallback={null}>
+          <ImageLightbox images={[lightboxUrl]} onClose={() => setLightboxUrl(null)} />
+        </Suspense>
       )}
     </div>
   );

@@ -157,11 +157,15 @@ export const PostCard = memo(function PostCard({ post, onDelete, onUnsave }: Pos
                         </button>
                       )}
                       <button
-                        onClick={async () => {
+                        onClick={() => {
                           setMenuOpen(false);
-                          if (!window.confirm("Signaler cette publication comme inappropriée ?")) return;
-                          const r = await reportPostAction(post.id, "Contenu inapproprié");
-                          toast[r.error ? "error" : "success"](r.error ? "Erreur lors du signalement" : "Publication signalée, merci !");
+                          toast("Signaler cette publication ?", {
+                            action: { label: "Confirmer", onClick: async () => {
+                              const r = await reportPostAction(post.id, "Contenu inapproprié");
+                              toast[r.error ? "error" : "success"](r.error ? "Erreur lors du signalement" : "Publication signalée, merci !");
+                            }},
+                            cancel: { label: "Annuler", onClick: () => {} },
+                          });
                         }}
                         className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted"
                       >
