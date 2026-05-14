@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/models.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../widgets/post_card.dart';
 import '../../widgets/app_avatar.dart';
 import '../../core/theme.dart';
@@ -73,6 +74,8 @@ class _FeedScreenState extends State<FeedScreen> {
     final auth = context.watch<AuthProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final notifProvider = context.watch<NotificationProvider>();
+
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 16,
@@ -85,9 +88,34 @@ class _FeedScreenState extends State<FeedScreen> {
           ])),
         ]),
         actions: [
+          // Icône Recherche
           IconButton(
             icon: const Icon(Icons.search_rounded),
             onPressed: () => context.push('/search'),
+          ),
+          // Icône Messages avec badge non-lus
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                onPressed: () => context.go('/messages'),
+              ),
+              if (notifProvider.unreadMessages > 0)
+                Positioned(
+                  top: 6, right: 6,
+                  child: Container(
+                    width: 16, height: 16,
+                    decoration: const BoxDecoration(color: kOrange, shape: BoxShape.circle),
+                    child: Center(
+                      child: Text(
+                        notifProvider.unreadMessages > 9 ? '9+' : '${notifProvider.unreadMessages}',
+                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.only(right: 12),

@@ -19,7 +19,7 @@ class _AppShellState extends State<AppShell> {
 
   static const _tabs = [
     (path: '/feed',          icon: Icons.home_outlined,          activeIcon: Icons.home,           label: 'Accueil'),
-    (path: '/messages',      icon: Icons.chat_bubble_outline,    activeIcon: Icons.chat_bubble,    label: 'Messages'),
+    (path: '/friends',       icon: Icons.people_outline,         activeIcon: Icons.people,         label: 'Amis'),
     (path: '/create',        icon: Icons.add_box_outlined,       activeIcon: Icons.add_box,        label: ''),
     (path: '/notifications', icon: Icons.notifications_outlined, activeIcon: Icons.notifications,  label: 'Alertes'),
     (path: '/profile/me',    icon: Icons.person_outline,         activeIcon: Icons.person,         label: 'Profil'),
@@ -42,7 +42,7 @@ class _AppShellState extends State<AppShell> {
 
   int _tabIndex(String location) {
     if (location.startsWith('/feed')) return 0;
-    if (location.startsWith('/messages')) return 1;
+    if (location.startsWith('/friends')) return 1;
     if (location.startsWith('/create')) return 2;
     if (location.startsWith('/notifications')) return 3;
     if (location.startsWith('/profile')) return 4;
@@ -94,6 +94,8 @@ class _AppShellState extends State<AppShell> {
 
                       final badgeCount = tab.path == '/notifications'
                           ? notifProvider.unreadCount
+                          : tab.path == '/friends'
+                              ? notifProvider.friendRequestCount
                           : tab.path == '/messages'
                               ? notifProvider.unreadMessages
                               : 0;
