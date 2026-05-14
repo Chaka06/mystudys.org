@@ -260,6 +260,11 @@ class Message {
   final String? mediaUrl;
   final bool isRead;
   final bool isDeleted;
+  final bool isViewOnce;
+  final bool isViewed;
+  final String? replyToId;
+  final String? replyToContent;
+  final String? replyToSender;
   final String createdAt;
   final Profile? sender;
 
@@ -271,6 +276,11 @@ class Message {
     this.mediaUrl,
     this.isRead = false,
     this.isDeleted = false,
+    this.isViewOnce = false,
+    this.isViewed = false,
+    this.replyToId,
+    this.replyToContent,
+    this.replyToSender,
     required this.createdAt,
     this.sender,
   });
@@ -282,6 +292,11 @@ class Message {
         content: j['content'] ?? '',
         mediaUrl: j['media_url'],
         isRead: j['is_read'] ?? false,
+        isViewOnce: j['is_view_once'] ?? false,
+        isViewed: j['is_viewed'] ?? false,
+        replyToId: j['reply_to_id'],
+        replyToContent: j['reply_to_content'],
+        replyToSender: j['reply_to_sender'],
         isDeleted: j['is_deleted'] ?? false,
         createdAt: j['created_at'] ?? '',
         sender: j['sender'] != null ? Profile.fromJson(j['sender']) : null,

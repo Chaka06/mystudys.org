@@ -29,9 +29,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Media en attente
   File? _pendingFile;
-  String? _pendingFileType; // 'image' ou 'pdf'
+  String? _pendingFileType;
   String? _pendingFileName;
   bool _uploading = false;
+  bool _isViewOnce = false; // "vue une fois"
+
+  // Réponse à un message
+  Message? _replyTo;
 
   @override
   void initState() {
@@ -105,48 +109,35 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  // ── Sélecteur media : bottom sheet Image / PDF ──────────────────────────────
+  // ── Sélecteur media ─────────────────────────────────────────────────────────
   void _showMediaPicker() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark ? const Color(0xFF1E2025) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 40, height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const Text('Envoyer un fichier',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              const Text('Envoyer un fichier', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               const SizedBox(height: 16),
               ListTile(
-                leading: Container(
-                  width: 44, height: 44,
+                leading: Container(width: 44, height: 44,
                   decoration: BoxDecoration(color: kGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.image_outlined, color: kGreen, size: 24),
-                ),
+                  child: const Icon(Icons.image_outlined, color: kGreen, size: 24)),
                 title: const Text('Photo', style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: const Text('Galerie ou appareil photo'),
                 onTap: () { Navigator.pop(ctx); _pickImage(); },
               ),
               ListTile(
-                leading: Container(
-                  width: 44, height: 44,
+                leading: Container(width: 44, height: 44,
                   decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                  child: Icon(Icons.picture_as_pdf, color: Colors.red.shade600, size: 24),
-                ),
+                  child: Icon(Icons.picture_as_pdf, color: Colors.red.shade600, size: 24)),
                 title: const Text('Document PDF', style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: const Text('Cours, sujets, documents...'),
                 onTap: () { Navigator.pop(ctx); _pickPdf(); },
@@ -160,82 +151,65 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _pickImage() async {
-    // Choix source
     final source = await showDialog<ImageSource>(
       context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('Choisir une photo'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, ImageSource.gallery),
-            child: const Row(children: [
-              Icon(Icons.photo_library_outlined, size: 20),
-              SizedBox(width: 12),
-              Text('Galerie'),
-            ]),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, ImageSource.camera),
-            child: const Row(children: [
-              Icon(Icons.camera_alt_outlined, size: 20),
-              SizedBox(width: 12),
-              Text('Appareil photo'),
-            ]),
-          ),
-        ],
-      ),
+      builder: (ctx) => SimpleDialog(title: const Text('Choisir une photo'), children: [
+        SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ImageSource.gallery),
+          child: const Row(children: [Icon(Icons.photo_library_outlined, size: 20), SizedBox(width: 12), Text('Galerie')])),
+        SimpleDialogOption(onPressed: () => Navigator.pop(ctx, ImageSource.camera),
+          child: const Row(children: [Icon(Icons.camera_alt_outlined, size: 20), SizedBox(width: 12), Text('Appareil photo')])),
+      ]),
     );
     if (source == null) return;
-
-    final picker = ImagePicker();
-    final file = await picker.pickImage(source: source, imageQuality: 80);
+    final file = await ImagePicker().pickImage(source: source, imageQuality: 80);
     if (file == null || !mounted) return;
-
-    setState(() {
-      _pendingFile = File(file.path);
-      _pendingFileType = 'image';
-      _pendingFileName = file.name;
-    });
+    setState(() { _pendingFile = File(file.path); _pendingFileType = 'image'; _pendingFileName = file.name; _isViewOnce = false; });
   }
 
   Future<void> _pickPdf() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
+    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
     if (result == null || result.files.isEmpty || !mounted) return;
     final picked = result.files.first;
     if (picked.path == null) return;
-
     final file = File(picked.path!);
-    final size = await file.length();
-    if (size > 50 * 1024 * 1024) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fichier trop volumineux (max 50 MB)')),
-      );
+    if (await file.length() > 50 * 1024 * 1024) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fichier trop volumineux (max 50 MB)')));
       return;
     }
+    setState(() { _pendingFile = file; _pendingFileType = 'pdf'; _pendingFileName = picked.name; _isViewOnce = false; });
+  }
 
+  void _cancelPending() => setState(() { _pendingFile = null; _pendingFileType = null; _pendingFileName = null; _isViewOnce = false; });
+  void _cancelReply() => setState(() => _replyTo = null);
+
+  // ── Vue une fois : marquer comme vue ────────────────────────────────────────
+  Future<void> _markViewed(Message msg) async {
+    await _sb.from('messages').update({'is_viewed': true}).eq('id', msg.id);
     setState(() {
-      _pendingFile = file;
-      _pendingFileType = 'pdf';
-      _pendingFileName = picked.name;
+      final idx = _messages.indexWhere((m) => m.id == msg.id);
+      if (idx != -1) {
+        _messages[idx] = Message(
+          id: msg.id, conversationId: msg.conversationId, senderId: msg.senderId,
+          content: msg.content, mediaUrl: msg.mediaUrl, isRead: msg.isRead,
+          isDeleted: msg.isDeleted, isViewOnce: msg.isViewOnce, isViewed: true,
+          replyToId: msg.replyToId, replyToContent: msg.replyToContent, replyToSender: msg.replyToSender,
+          createdAt: msg.createdAt, sender: msg.sender,
+        );
+      }
     });
   }
 
-  void _cancelPending() => setState(() { _pendingFile = null; _pendingFileType = null; _pendingFileName = null; });
-
-  Future<void> _sendMessage({String? text}) async {
-    final content = (text ?? _msgCtrl.text).trim();
+  // ── Envoi de message ─────────────────────────────────────────────────────────
+  Future<void> _sendMessage() async {
+    final content = _msgCtrl.text.trim();
     if (content.isEmpty && _pendingFile == null) return;
     if (_sending || _myId == null) return;
-    setState(() { _sending = true; });
+    setState(() => _sending = true);
     _msgCtrl.clear();
 
     String? mediaUrl;
     String messageContent = content;
 
-    // Upload le fichier en attente
     if (_pendingFile != null) {
       setState(() => _uploading = true);
       try {
@@ -244,14 +218,9 @@ class _ChatScreenState extends State<ChatScreen> {
         final path = '$_myId/messages/${DateTime.now().millisecondsSinceEpoch}.$ext';
         await _sb.storage.from(AppConstants.storageBucket).uploadBinary(path, bytes);
         mediaUrl = _sb.storage.from(AppConstants.storageBucket).getPublicUrl(path);
-        // Pour PDF : stocker le nom dans le content
-        if (_pendingFileType == 'pdf' && content.isEmpty) {
-          messageContent = _pendingFileName ?? 'Document PDF';
-        }
-      } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Erreur lors de l'envoi du fichier")),
-        );
+        if (_pendingFileType == 'pdf' && content.isEmpty) messageContent = _pendingFileName ?? 'Document PDF';
+      } catch (_) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Erreur lors de l'envoi")));
         setState(() { _sending = false; _uploading = false; });
         return;
       }
@@ -260,26 +229,27 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final tempId = 'temp-${DateTime.now().millisecondsSinceEpoch}';
     final optimistic = Message(
-      id: tempId,
-      conversationId: widget.conversation.id,
-      senderId: _myId!,
-      content: messageContent,
-      mediaUrl: mediaUrl,
+      id: tempId, conversationId: widget.conversation.id, senderId: _myId!,
+      content: messageContent, mediaUrl: mediaUrl, isViewOnce: _isViewOnce,
+      replyToId: _replyTo?.id, replyToContent: _replyTo?.content,
+      replyToSender: _replyTo?.sender?.firstName ?? _replyTo?.sender?.fullName,
       createdAt: DateTime.now().toIso8601String(),
     );
-    setState(() => _messages.add(optimistic));
+    final wasReplyTo = _replyTo;
+    setState(() { _messages.add(optimistic); _replyTo = null; _isViewOnce = false; });
     _scrollToBottom();
 
     try {
-      final data = await _sb.from('messages')
-          .insert({
-            'conversation_id': widget.conversation.id,
-            'sender_id': _myId,
-            'content': messageContent,
-            if (mediaUrl != null) 'media_url': mediaUrl,
-          })
-          .select('*, sender:profiles(id,username,full_name,first_name,avatar_url)')
-          .single();
+      final data = await _sb.from('messages').insert({
+        'conversation_id': widget.conversation.id,
+        'sender_id': _myId,
+        'content': messageContent,
+        if (mediaUrl != null) 'media_url': mediaUrl,
+        'is_view_once': optimistic.isViewOnce,
+        if (wasReplyTo != null) 'reply_to_id': wasReplyTo.id,
+        if (wasReplyTo != null) 'reply_to_content': wasReplyTo.content.isNotEmpty ? wasReplyTo.content : '📎 Fichier',
+        if (wasReplyTo != null) 'reply_to_sender': wasReplyTo.sender?.firstName ?? wasReplyTo.sender?.fullName ?? '',
+      }).select('*, sender:profiles(id,username,full_name,first_name,avatar_url)').single();
       final real = Message.fromJson(data);
       if (!mounted) return;
       setState(() {
@@ -287,7 +257,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (idx != -1) _messages[idx] = real;
       });
       await _sb.from('conversations').update({
-        'last_message': mediaUrl != null ? (real.content.isEmpty ? '📎 Fichier' : real.content) : messageContent,
+        'last_message': mediaUrl != null ? (messageContent.isEmpty ? '📎 Fichier' : messageContent) : messageContent,
         'last_message_at': DateTime.now().toIso8601String(),
         'is_active': true,
       }).eq('id', widget.conversation.id);
@@ -299,8 +269,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String _formatDate(String iso) {
-    final now = DateTime.now();
-    final msg = DateTime.parse(iso).toLocal();
+    final now = DateTime.now(); final msg = DateTime.parse(iso).toLocal();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final msgDate = DateTime(msg.year, msg.month, msg.day);
@@ -331,10 +300,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final other = widget.conversation.otherParticipant;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF0F1117) : const Color(0xFFF0F2F5);
 
     return Scaffold(
-      backgroundColor: bgColor,
+      backgroundColor: isDark ? const Color(0xFF0F1117) : const Color(0xFFF0F2F5),
       appBar: AppBar(
         backgroundColor: isDark ? const Color(0xFF1E2025) : Colors.white,
         titleSpacing: 0,
@@ -349,67 +317,70 @@ class _ChatScreenState extends State<ChatScreen> {
           ]),
         ]),
       ),
-      body: Column(
-        children: [
-          // Zone messages
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator(color: kOrange))
-                : _messages.isEmpty
-                    ? _buildEmptyState(other)
-                    : ListView.builder(
-                        controller: _scrollCtrl,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        itemCount: _messages.length,
-                        itemBuilder: (ctx, i) {
-                          final msg = _messages[i];
-                          final isMine = msg.senderId == _myId;
-                          final prev = i > 0 ? _messages[i-1] : null;
-                          final next = i < _messages.length - 1 ? _messages[i+1] : null;
-                          final isFirst = prev == null || prev.senderId != msg.senderId;
-                          final isLast = next == null || next.senderId != msg.senderId;
-                          final showDate = prev == null || !_isSameDay(prev.createdAt, msg.createdAt);
-                          return Column(children: [
-                            if (showDate) Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF2D3139) : Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
-                                ),
-                                child: Text(_formatDate(msg.createdAt),
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
-                              ),
-                            ),
-                            _MessageBubble(
-                              msg: msg, isMine: isMine, isFirst: isFirst, isLast: isLast,
-                              myId: _myId ?? '', timeStr: _timeStr(msg.createdAt),
-                            ),
-                          ]);
-                        },
-                      ),
-          ),
+      body: Column(children: [
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator(color: kOrange))
+              : _messages.isEmpty
+                  ? _buildEmpty(other)
+                  : ListView.builder(
+                      controller: _scrollCtrl,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      itemCount: _messages.length,
+                      itemBuilder: (ctx, i) {
+                        final msg = _messages[i];
+                        final isMine = msg.senderId == _myId;
+                        final prev = i > 0 ? _messages[i-1] : null;
+                        final next = i < _messages.length-1 ? _messages[i+1] : null;
+                        final isFirst = prev == null || prev.senderId != msg.senderId;
+                        final isLast = next == null || next.senderId != msg.senderId;
+                        final showDate = prev == null || !_isSameDay(prev.createdAt, msg.createdAt);
 
-          // Zone saisie
-          _InputBar(
-            controller: _msgCtrl,
-            sending: _sending,
-            uploading: _uploading,
-            pendingFile: _pendingFile,
-            pendingFileType: _pendingFileType,
-            pendingFileName: _pendingFileName,
-            onSend: () => _sendMessage(),
-            onPickMedia: _showMediaPicker,
-            onCancelPending: _cancelPending,
-          ),
-        ],
-      ),
+                        return Column(children: [
+                          if (showDate) Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF2D3139) : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)],
+                              ),
+                              child: Text(_formatDate(msg.createdAt),
+                                style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                            ),
+                          ),
+                          // Glisser pour répondre
+                          _SwipeToReply(
+                            isMine: isMine,
+                            onReply: () => setState(() => _replyTo = msg),
+                            child: _MessageBubble(
+                              msg: msg, isMine: isMine, isFirst: isFirst, isLast: isLast,
+                              timeStr: _timeStr(msg.createdAt),
+                              onViewOnce: () => _markViewed(msg),
+                            ),
+                          ),
+                        ]);
+                      },
+                    ),
+        ),
+        _InputBar(
+          controller: _msgCtrl,
+          sending: _sending, uploading: _uploading,
+          pendingFile: _pendingFile, pendingFileType: _pendingFileType, pendingFileName: _pendingFileName,
+          isViewOnce: _isViewOnce,
+          replyTo: _replyTo,
+          onSend: _sendMessage,
+          onPickMedia: _showMediaPicker,
+          onCancelPending: _cancelPending,
+          onCancelReply: _cancelReply,
+          onToggleViewOnce: () => setState(() => _isViewOnce = !_isViewOnce),
+        ),
+      ]),
     );
   }
 
-  Widget _buildEmptyState(Profile? other) => Center(
+  Widget _buildEmpty(Profile? other) => Center(
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       AppAvatar(url: other?.avatarUrl, initials: other?.initials ?? 'U', size: 72),
       const SizedBox(height: 16),
@@ -421,13 +392,96 @@ class _ChatScreenState extends State<ChatScreen> {
   );
 }
 
-// ── Bulle de message ─────────────────────────────────────────────────────────
+// ── Glisser pour répondre ─────────────────────────────────────────────────────
+
+class _SwipeToReply extends StatefulWidget {
+  final Widget child;
+  final bool isMine;
+  final VoidCallback onReply;
+  const _SwipeToReply({required this.child, required this.isMine, required this.onReply});
+  @override
+  State<_SwipeToReply> createState() => _SwipeToReplyState();
+}
+
+class _SwipeToReplyState extends State<_SwipeToReply> with SingleTickerProviderStateMixin {
+  double _offset = 0;
+  bool _triggered = false;
+  late AnimationController _iconAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _iconAnim = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
+  }
+
+  @override
+  void dispose() { _iconAnim.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onHorizontalDragUpdate: (d) {
+        // Glisser vers la droite uniquement
+        if (d.delta.dx > 0) {
+          setState(() {
+            _offset = (_offset + d.delta.dx).clamp(0.0, 72.0);
+            if (_offset > 50 && !_triggered) {
+              _triggered = true;
+              _iconAnim.forward(from: 0);
+            }
+          });
+        }
+      },
+      onHorizontalDragEnd: (_) {
+        if (_triggered) widget.onReply();
+        setState(() { _offset = 0; _triggered = false; });
+      },
+      child: Stack(
+        children: [
+          // Icône répondre visible derrière
+          Positioned(
+            left: 8,
+            top: 0, bottom: 0,
+            child: Opacity(
+              opacity: (_offset / 60).clamp(0.0, 1.0),
+              child: Center(
+                child: Transform.scale(
+                  scale: (_offset / 50).clamp(0.5, 1.0),
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: kOrange.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.reply_rounded, color: kOrange, size: 18),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Message décalé
+          Transform.translate(
+            offset: Offset(_offset, 0),
+            child: widget.child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Bulle de message ──────────────────────────────────────────────────────────
 
 class _MessageBubble extends StatelessWidget {
   final Message msg;
   final bool isMine, isFirst, isLast;
-  final String myId, timeStr;
-  const _MessageBubble({required this.msg, required this.isMine, required this.isFirst, required this.isLast, required this.myId, required this.timeStr});
+  final String timeStr;
+  final VoidCallback onViewOnce;
+
+  const _MessageBubble({
+    required this.msg, required this.isMine, required this.isFirst,
+    required this.isLast, required this.timeStr, required this.onViewOnce,
+  });
 
   bool _isImage(String url) => RegExp(r'\.(jpg|jpeg|png|webp|gif)(\?|$)', caseSensitive: false).hasMatch(url);
   bool _isPdf(String url) => RegExp(r'\.pdf(\?|$)', caseSensitive: false).hasMatch(url);
@@ -441,7 +495,7 @@ class _MessageBubble extends StatelessWidget {
     final hasImage = msg.mediaUrl != null && _isImage(msg.mediaUrl!);
     final hasText = msg.content.isNotEmpty && !hasPdf;
 
-    final borderRadius = BorderRadius.only(
+    final br = BorderRadius.only(
       topLeft: const Radius.circular(18),
       topRight: const Radius.circular(18),
       bottomLeft: Radius.circular(isMine ? 18 : (isLast ? 18 : 4)),
@@ -454,142 +508,165 @@ class _MessageBubble extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Avatar expéditeur
           if (!isMine) ...[
-            SizedBox(
-              width: 32,
-              child: isLast ? AppAvatar(url: msg.sender?.avatarUrl, initials: msg.sender?.initials ?? 'U', size: 28) : const SizedBox(),
-            ),
+            SizedBox(width: 32, child: isLast
+                ? AppAvatar(url: msg.sender?.avatarUrl, initials: msg.sender?.initials ?? 'U', size: 28)
+                : const SizedBox()),
             const SizedBox(width: 4),
           ],
-
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
             child: Container(
               margin: EdgeInsets.only(top: isFirst ? 6 : 2, bottom: isLast ? 6 : 2, left: isMine ? 40 : 0),
               decoration: BoxDecoration(
                 color: hasPdf ? Colors.transparent : (isMine ? bubbleMine : bubbleOther),
-                borderRadius: borderRadius,
+                borderRadius: br,
                 boxShadow: hasPdf ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))],
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Image
-                  if (hasImage)
+                  // Aperçu du message auquel on répond
+                  if (msg.replyToContent != null && msg.replyToContent!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(6, 6, 6, 0),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: (isMine ? Colors.white : kOrange).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border(left: BorderSide(color: isMine ? Colors.white : kOrange, width: 3)),
+                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        if (msg.replyToSender != null)
+                          Text(msg.replyToSender!,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                              color: isMine ? Colors.white : kOrange)),
+                        Text(msg.replyToContent!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: isMine ? Colors.white70 : Colors.grey.shade600)),
+                      ]),
+                    ),
+
+                  // ── Photo "vue une fois" ──────────────────────────────
+                  if (hasImage && msg.isViewOnce)
                     GestureDetector(
-                      onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-                        builder: (_) => _ImageViewer(url: msg.mediaUrl!),
-                        fullscreenDialog: true,
-                      )),
-                      child: ClipRRect(
-                        borderRadius: borderRadius,
-                        child: Image.network(msg.mediaUrl!, fit: BoxFit.cover, width: 220,
-                          loadingBuilder: (_, child, progress) => progress == null ? child : Container(
-                            width: 220, height: 160, color: Colors.grey.shade200,
-                            child: const Center(child: CircularProgressIndicator(color: kOrange, strokeWidth: 2)),
-                          ),
+                      onTap: msg.isViewed ? null : () async {
+                        // Montrer la photo UNE SEULE fois
+                        await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+                          builder: (_) => _ViewOnceViewer(url: msg.mediaUrl!),
+                          fullscreenDialog: true,
+                        ));
+                        onViewOnce();
+                      },
+                      child: Container(
+                        width: 200, height: 80,
+                        margin: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: isMine ? Colors.white.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: isMine ? Colors.white30 : Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              msg.isViewed ? Icons.visibility_off_outlined : Icons.timer_outlined,
+                              color: isMine ? Colors.white : kOrange, size: 28,
+                            ),
+                            const SizedBox(width: 10),
+                            Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(msg.isViewed ? 'Photo expirée' : 'Photo',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                                  color: isMine ? Colors.white : Colors.black87)),
+                              Text(msg.isViewed ? 'Déjà vue' : 'Vue une fois — appuyer',
+                                style: TextStyle(fontSize: 10,
+                                  color: isMine ? Colors.white60 : Colors.grey.shade500)),
+                            ]),
+                          ],
                         ),
                       ),
                     ),
 
-                  // PDF card dans la bulle
+                  // ── Photo normale ───────────────────────────────────────
+                  if (hasImage && !msg.isViewOnce)
+                    GestureDetector(
+                      onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+                        builder: (_) => _ImageViewer(url: msg.mediaUrl!), fullscreenDialog: true)),
+                      child: ClipRRect(
+                        borderRadius: br,
+                        child: Image.network(msg.mediaUrl!, fit: BoxFit.cover, width: 220,
+                          loadingBuilder: (_, child, p) => p == null ? child : Container(
+                            width: 220, height: 160, color: Colors.grey.shade200,
+                            child: const Center(child: CircularProgressIndicator(color: kOrange, strokeWidth: 2)))),
+                      ),
+                    ),
+
+                  // ── PDF ─────────────────────────────────────────────────
                   if (hasPdf)
                     GestureDetector(
                       onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
-                        builder: (_) => PdfViewerScreen(url: msg.mediaUrl!, title: msg.content.isEmpty ? 'Document PDF' : msg.content),
-                        fullscreenDialog: true,
-                      )),
+                        builder: (_) => PdfViewerScreen(url: msg.mediaUrl!,
+                          title: msg.content.isEmpty ? 'Document PDF' : msg.content), fullscreenDialog: true)),
                       child: Container(
                         width: 240,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(colors: [Colors.red.shade700, Colors.red.shade500], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                          borderRadius: borderRadius,
+                          borderRadius: br,
                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 6, offset: const Offset(0, 2))],
                         ),
-                        child: Column(
-                          children: [
-                            // Zone icône
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
-                              child: Row(children: [
-                                Container(
-                                  width: 44, height: 44,
-                                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
-                                  child: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 26),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      msg.content.isEmpty ? 'Document PDF' : msg.content.replaceAll(RegExp(r'\.[^/.]+$'), ''),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
-                                      maxLines: 2, overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const Text('Appuyer pour ouvrir', style: TextStyle(color: Colors.white70, fontSize: 10)),
-                                  ],
-                                )),
-                              ]),
-                            ),
-                            // Heure
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Text(timeStr, style: const TextStyle(color: Colors.white60, fontSize: 10)),
-                                  if (isMine) ...[
-                                    const SizedBox(width: 4),
-                                    Icon(msg.isRead ? Icons.done_all : Icons.done, size: 11, color: Colors.white60),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                        child: Column(children: [
+                          Padding(padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+                            child: Row(children: [
+                              Container(width: 44, height: 44,
+                                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
+                                child: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 26)),
+                              const SizedBox(width: 10),
+                              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(msg.content.isEmpty ? 'Document PDF' : msg.content.replaceAll(RegExp(r'\.[^/.]+$'), ''),
+                                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                                const Text('Appuyer pour ouvrir', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                              ])),
+                            ])),
+                          Padding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                            child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                              Text(timeStr, style: const TextStyle(color: Colors.white60, fontSize: 10)),
+                              if (isMine) ...[const SizedBox(width: 4),
+                                Icon(msg.isRead ? Icons.done_all : Icons.done, size: 11, color: Colors.white60)],
+                            ])),
+                        ]),
                       ),
                     ),
 
-                  // Texte
+                  // ── Texte ────────────────────────────────────────────────
                   if (hasText)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(msg.content,
-                            style: TextStyle(
-                              color: isMine ? Colors.white : (isDark ? Colors.white : const Color(0xFF1A1A1A)),
-                              fontSize: 14, height: 1.4,
-                            ),
-                          ),
-                          if (isLast) ...[
-                            const SizedBox(height: 2),
-                            Row(mainAxisSize: MainAxisSize.min, children: [
-                              Text(timeStr, style: TextStyle(fontSize: 10, color: isMine ? Colors.white60 : Colors.grey.shade400)),
-                              if (isMine) ...[
-                                const SizedBox(width: 4),
-                                Icon(msg.isRead ? Icons.done_all : Icons.done, size: 12, color: msg.isRead ? Colors.white : Colors.white60),
-                              ],
-                            ]),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                  // Heure sous l'image
-                  if (hasImage && isLast)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text(timeStr, style: TextStyle(fontSize: 10, color: isMine ? Colors.white60 : Colors.grey.shade400)),
-                        if (isMine) ...[
-                          const SizedBox(width: 4),
-                          Icon(msg.isRead ? Icons.done_all : Icons.done, size: 12, color: msg.isRead ? Colors.white : Colors.white60),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                        Text(msg.content,
+                          style: TextStyle(
+                            color: isMine ? Colors.white : (isDark ? Colors.white : const Color(0xFF1A1A1A)),
+                            fontSize: 14, height: 1.4)),
+                        if (isLast) ...[
+                          const SizedBox(height: 2),
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(timeStr, style: TextStyle(fontSize: 10, color: isMine ? Colors.white60 : Colors.grey.shade400)),
+                            if (isMine) ...[const SizedBox(width: 4),
+                              Icon(msg.isRead ? Icons.done_all : Icons.done, size: 12,
+                                color: msg.isRead ? Colors.white : Colors.white60)],
+                          ]),
                         ],
                       ]),
                     ),
+
+                  // Heure sous image normale
+                  if (hasImage && !msg.isViewOnce && isLast)
+                    Padding(padding: const EdgeInsets.fromLTRB(8, 4, 8, 6),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(timeStr, style: TextStyle(fontSize: 10, color: isMine ? Colors.white60 : Colors.grey.shade400)),
+                        if (isMine) ...[const SizedBox(width: 4),
+                          Icon(msg.isRead ? Icons.done_all : Icons.done, size: 12,
+                            color: msg.isRead ? Colors.white : Colors.white60)],
+                      ])),
                 ],
               ),
             ),
@@ -600,11 +677,33 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
-// ── Visionneuse image dans le chat ────────────────────────────────────────────
+// ── Visionneuse "vue une fois" ────────────────────────────────────────────────
 
-class _ImageViewer extends StatelessWidget {
+class _ViewOnceViewer extends StatefulWidget {
   final String url;
-  const _ImageViewer({required this.url});
+  const _ViewOnceViewer({required this.url});
+  @override
+  State<_ViewOnceViewer> createState() => _ViewOnceViewerState();
+}
+
+class _ViewOnceViewerState extends State<_ViewOnceViewer> {
+  int _seconds = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    Future.delayed(const Duration(seconds: 1), () {
+      if (!mounted) return;
+      setState(() => _seconds--);
+      if (_seconds > 0) _startTimer();
+      else Navigator.pop(context);
+    });
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Colors.black,
@@ -612,105 +711,165 @@ class _ImageViewer extends StatelessWidget {
       backgroundColor: Colors.black,
       foregroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
+      title: Row(children: [
+        const Icon(Icons.timer_outlined, size: 18, color: kOrange),
+        const SizedBox(width: 6),
+        Text('Vue une fois — disparaît dans ${_seconds}s',
+          style: const TextStyle(fontSize: 13, color: Colors.white)),
+      ]),
     ),
     body: Center(
       child: InteractiveViewer(
         minScale: 0.8, maxScale: 4.0,
-        child: Image.network(url, fit: BoxFit.contain,
-          loadingBuilder: (_, child, progress) => progress == null ? child
+        child: Image.network(widget.url, fit: BoxFit.contain,
+          loadingBuilder: (_, child, p) => p == null ? child
               : const Center(child: CircularProgressIndicator(color: Colors.white))),
       ),
     ),
   );
 }
 
-// ── Barre de saisie ──────────────────────────────────────────────────────────
+// ── Visionneuse image normale ─────────────────────────────────────────────────
+
+class _ImageViewer extends StatelessWidget {
+  final String url;
+  const _ImageViewer({required this.url});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, surfaceTintColor: Colors.transparent),
+    body: Center(
+      child: InteractiveViewer(
+        minScale: 0.8, maxScale: 4.0,
+        child: Image.network(url, fit: BoxFit.contain,
+          loadingBuilder: (_, child, p) => p == null ? child
+              : const Center(child: CircularProgressIndicator(color: Colors.white))),
+      ),
+    ),
+  );
+}
+
+// ── Barre de saisie ────────────────────────────────────────────────────────────
 
 class _InputBar extends StatelessWidget {
   final TextEditingController controller;
-  final bool sending, uploading;
+  final bool sending, uploading, isViewOnce;
   final File? pendingFile;
   final String? pendingFileType, pendingFileName;
-  final VoidCallback onSend, onPickMedia, onCancelPending;
+  final Message? replyTo;
+  final VoidCallback onSend, onPickMedia, onCancelPending, onCancelReply, onToggleViewOnce;
 
   const _InputBar({
     required this.controller, required this.sending, required this.uploading,
-    this.pendingFile, this.pendingFileType, this.pendingFileName,
+    required this.isViewOnce, this.pendingFile, this.pendingFileType,
+    this.pendingFileName, this.replyTo,
     required this.onSend, required this.onPickMedia, required this.onCancelPending,
+    required this.onCancelReply, required this.onToggleViewOnce,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final barColor = isDark ? const Color(0xFF1E2025) : Colors.white;
+    final dividerColor = isDark ? const Color(0xFF2D3139) : Colors.grey.shade200;
+
     return SafeArea(
       top: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Aperçu du fichier en attente
+          // Aperçu réponse
+          if (replyTo != null)
+            Container(
+              color: barColor,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: kOrange.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border(left: const BorderSide(color: kOrange, width: 3)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.reply_rounded, color: kOrange, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(replyTo!.sender?.firstName ?? replyTo!.sender?.fullName ?? 'Message',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: kOrange)),
+                    Text(replyTo!.content.isNotEmpty ? replyTo!.content : '📎 Fichier',
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  ])),
+                  GestureDetector(onTap: onCancelReply,
+                    child: const Icon(Icons.close, size: 16, color: Colors.grey)),
+                ]),
+              ),
+            ),
+
+          // Aperçu fichier
           if (pendingFile != null)
             Container(
-              color: isDark ? const Color(0xFF1E2025) : Colors.white,
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              color: barColor,
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF2D3139) : Colors.grey.shade50,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? const Color(0xFF3D4149) : Colors.grey.shade200),
+                  border: Border.all(color: dividerColor),
                 ),
                 child: Row(children: [
-                  // Aperçu
                   if (pendingFileType == 'image')
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(pendingFile!, width: 48, height: 48, fit: BoxFit.cover),
-                    )
+                    ClipRRect(borderRadius: BorderRadius.circular(8),
+                      child: Image.file(pendingFile!, width: 48, height: 48, fit: BoxFit.cover))
                   else
-                    Container(
-                      width: 48, height: 48,
+                    Container(width: 48, height: 48,
                       decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-                      child: Icon(Icons.picture_as_pdf, color: Colors.red.shade600, size: 24),
-                    ),
+                      child: Icon(Icons.picture_as_pdf, color: Colors.red.shade600, size: 24)),
                   const SizedBox(width: 10),
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(pendingFileName ?? (pendingFileType == 'image' ? 'Image' : 'Document PDF'),
+                    Text(pendingFileName ?? (pendingFileType == 'image' ? 'Image' : 'PDF'),
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(pendingFileType == 'image' ? 'Image sélectionnée' : 'PDF sélectionné',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                    if (pendingFileType == 'image')
+                      // Toggle "vue une fois"
+                      GestureDetector(
+                        onTap: onToggleViewOnce,
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(isViewOnce ? Icons.timer : Icons.timer_outlined,
+                            size: 13, color: isViewOnce ? kOrange : Colors.grey.shade500),
+                          const SizedBox(width: 4),
+                          Text(isViewOnce ? 'Vue une fois activé' : 'Vue une fois',
+                            style: TextStyle(fontSize: 11, color: isViewOnce ? kOrange : Colors.grey.shade500,
+                              fontWeight: isViewOnce ? FontWeight.w700 : FontWeight.normal)),
+                        ]),
+                      ),
                   ])),
                   if (uploading)
                     const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: kOrange, strokeWidth: 2))
                   else
-                    GestureDetector(
-                      onTap: onCancelPending,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
+                    GestureDetector(onTap: onCancelPending,
+                      child: Container(padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                        child: const Icon(Icons.close, size: 12, color: Colors.white),
-                      ),
-                    ),
+                        child: const Icon(Icons.close, size: 12, color: Colors.white))),
                 ]),
               ),
             ),
 
-          // Saisie + boutons
+          // Saisie
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E2025) : Colors.white,
-              border: Border(top: BorderSide(color: isDark ? const Color(0xFF2D3139) : Colors.grey.shade200)),
+              color: barColor,
+              border: Border(top: BorderSide(color: dividerColor)),
             ),
             child: Row(children: [
-              // Bouton pièce jointe
               GestureDetector(
                 onTap: (sending || uploading) ? null : onPickMedia,
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: kOrange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                    borderRadius: BorderRadius.circular(10)),
                   child: Icon(Icons.add, color: (sending || uploading) ? Colors.grey : kOrange, size: 20),
                 ),
               ),
@@ -721,7 +880,7 @@ class _InputBar extends StatelessWidget {
                   minLines: 1, maxLines: 4,
                   onSubmitted: (_) => onSend(),
                   decoration: InputDecoration(
-                    hintText: pendingFile != null ? 'Ajouter un message...' : 'Écrire un message…',
+                    hintText: replyTo != null ? 'Répondre…' : (pendingFile != null ? 'Ajouter un message...' : 'Écrire un message…'),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     fillColor: isDark ? const Color(0xFF2D3139) : const Color(0xFFF1F5F9),
                   ),
@@ -734,8 +893,7 @@ class _InputBar extends StatelessWidget {
                   width: 40, height: 40,
                   decoration: BoxDecoration(
                     color: (sending || uploading) ? Colors.grey.shade300 : kOrange,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                    borderRadius: BorderRadius.circular(12)),
                   child: (sending || uploading)
                       ? const Padding(padding: EdgeInsets.all(10), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
