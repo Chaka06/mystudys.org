@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -104,7 +105,15 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         }
       }
 
-      if (mounted) Navigator.pop(context, true);
+      if (mounted) {
+        // Si ouvert via Navigator.push (FAB du feed) → pop normal
+        // Si ouvert via l'onglet shell /create → pop = écran noir, donc go('/feed')
+        if (Navigator.of(context).canPop()) {
+          Navigator.pop(context, true);
+        } else {
+          context.go('/feed');
+        }
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e')));
     } finally {
