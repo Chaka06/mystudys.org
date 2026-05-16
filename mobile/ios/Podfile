@@ -39,10 +39,15 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
-      # Force iOS 14+ sur tous les pods pour éviter les warnings de dépôt
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
-      # Désactiver le mode strict des signatures pour les pods
       config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+
+      # Fix conflit FileUtils entre file_picker et OSAnalytics.framework
+      # Le symbole FileUtils est dupliqué → risque de crash
+      if target.name == 'file_picker'
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'FileUtils=FlutterFileUtils'
+      end
     end
   end
 end

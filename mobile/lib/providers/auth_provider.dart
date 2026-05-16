@@ -5,7 +5,7 @@ import '../models/models.dart';
 
 class AuthProvider extends ChangeNotifier {
   final _supabase = Supabase.instance.client;
-  StreamSubscription? _authSubscription; // Stockée pour cancel dans dispose
+  StreamSubscription? _authSubscription;
 
   User? _user;
   Profile? _profile;
@@ -21,19 +21,35 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _init() async {
-    // currentUser est synchrone mais Supabase Flutter le restaure depuis le cache local
     _user = _supabase.auth.currentUser;
     if (_user != null) await _loadProfile();
     _loading = false;
     notifyListeners();
 
     _authSubscription = _supabase.auth.onAuthStateChange.listen((data) async {
-      _user = data.session?.user;
-      if (_user != null) {
+      final event = data.event;
+      final newUser = data.session?.user;
+
+      // Ignorer les token refreshes silencieux — ils déclenchent le listener
+      // sans changer l'état métier (l'utilisateur est toujours le même)
+      if (event == AuthChangeEvent.tokenRefreshed) {
+        _user = newUser; // Mettre à jour l'objet User sans recharger le profil
+        return;
+      }
+
+      final wasAuthenticated = _user != null;
+      final isNowAuthenticated = newUser != null;
+      _user = newUser;
+
+      if (isNowAuthenticated && !wasAuthenticated) {
+        // Nouvelle connexion → charger le profil
         await _loadProfile();
-      } else {
+      } else if (!isNowAuthenticated) {
+        // Déconnexion → vider le profil
         _profile = null;
       }
+      // Si même utilisateur déjà connecté → ne pas recharger le profil
+
       _loading = false;
       notifyListeners();
     });
@@ -53,7 +69,6 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> refreshProfile() => _loadProfile();
-  // Alias public pour les screens
   Future<void> fetchProfile() => _loadProfile();
 
   Future<String?> signOut() async {
@@ -70,7 +85,7 @@ class AuthProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _authSubscription?.cancel(); // Évite les fuites mémoire
+    _authSubscription?.cancel();
     super.dispose();
   }
 }
