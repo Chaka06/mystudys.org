@@ -93,16 +93,25 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
   }
 
   Future<void> _respond(String action, String friendshipId) async {
-    await _sb.from('friendships').update({'status': action == 'accept' ? 'accepted' : 'rejected'}).eq('id', friendshipId);
-    _load();
+    try {
+      await _sb.from('friendships').update({'status': action == 'accept' ? 'accepted' : 'rejected'}).eq('id', friendshipId);
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e')));
+    }
   }
 
   Future<void> _sendRequest(String addresseeId) async {
     final userId = _sb.auth.currentUser?.id;
     if (userId == null) return;
-    await _sb.from('friendships').insert({'requester_id': userId, 'addressee_id': addresseeId});
-    _load();
+    try {
+      await _sb.from('friendships').insert({'requester_id': userId, 'addressee_id': addresseeId});
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e')));
+    }
   }
+
 
   @override
   void dispose() {

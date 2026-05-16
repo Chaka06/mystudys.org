@@ -85,6 +85,7 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void _subscribeRealtime(String userId) {
+    // Stocker le channel AVANT subscribe() car subscribe() retourne void
     _channel = _sb.channel('notifs-provider-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
@@ -105,8 +106,8 @@ class NotificationProvider extends ChangeNotifier {
           schema: 'public',
           table: 'messages',
           callback: (_) => _loadUnreadMessages(),
-        )
-        .subscribe();
+        );
+    _channel!.subscribe(); // Appel séparé pour que _channel soit non-null
   }
 
   Future<void> markAsRead(String id) async {

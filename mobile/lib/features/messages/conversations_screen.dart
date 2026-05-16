@@ -16,6 +16,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   final _sb = Supabase.instance.client;
   List<Conversation> _conversations = [];
   bool _loading = true;
+  late RealtimeChannel _channel;
 
   @override
   void initState() {
@@ -24,10 +25,17 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
     _subscribeRealtime();
   }
 
+  @override
+  void dispose() {
+    _channel.unsubscribe();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     final userId = _sb.auth.currentUser?.id;
     if (userId == null) return;
     try {
+      if (!mounted) return;
       final data = await _sb
           .from('conversations')
           .select('*, p1:profiles!conversations_participant_1_fkey(id,username,full_name,first_name,avatar_url,last_seen_at,is_active), p2:profiles!conversations_participant_2_fkey(id,username,full_name,first_name,avatar_url,last_seen_at,is_active)')
@@ -72,7 +80,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   void _subscribeRealtime() {
     final userId = _sb.auth.currentUser?.id;
     if (userId == null) return;
-    _sb.channel('conv-list-$userId')
+    _channel = _sb.channel('conv-list-$userId')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
@@ -86,8 +94,8 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
           table: 'conversations',
           filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'participant_2', value: userId),
           callback: (_) => _load(),
-        )
-        .subscribe();
+        );
+    _channel.subscribe();
   }
 
   @override

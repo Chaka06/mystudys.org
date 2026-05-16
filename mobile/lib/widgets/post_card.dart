@@ -10,6 +10,7 @@ import '../models/models.dart';
 import '../core/theme.dart';
 import 'app_avatar.dart';
 import '../features/profile/profile_screen.dart';
+import 'comment_thread.dart';
 import '../features/pdf_viewer/pdf_viewer_screen.dart';
 
 // Wrapper pour naviguer vers ProfileScreen depuis PostCard
@@ -64,6 +65,7 @@ class _PostCardState extends State<PostCard> {
     final userId = _sb.auth.currentUser?.id;
     if (userId == null) return;
     final oldLiked = _liked;
+    final oldCount = _likeCount; // Sauvegarde exacte du compteur
     setState(() { _liking = true; _liked = !_liked; _likeCount += _liked ? 1 : -1; });
     try {
       if (_liked) {
@@ -72,9 +74,10 @@ class _PostCardState extends State<PostCard> {
         await _sb.from('post_likes').delete().eq('post_id', widget.post.id).eq('user_id', userId);
       }
     } catch (_) {
-      setState(() { _liked = oldLiked; _likeCount += oldLiked ? 1 : -1; });
+      // Restaurer EXACTEMENT l'état précédent
+      if (mounted) setState(() { _liked = oldLiked; _likeCount = oldCount; });
     } finally {
-      setState(() => _liking = false);
+      if (mounted) setState(() => _liking = false);
     }
   }
 
@@ -753,16 +756,24 @@ class _CommentSectionState extends State<_CommentSection> {
   Future<void> _send() async {
     final text = _ctrl.text.trim();
     if (text.isEmpty || _sending) return;
+    final userId = _sb.auth.currentUser?.id;
+    if (userId == null) return;
     setState(() => _sending = true);
     _ctrl.clear();
     try {
       final data = await _sb.from('comments')
-          .insert({'post_id': widget.postId, 'content': text, 'author_id': _sb.auth.currentUser?.id})
-          .select('*, author:profiles(id,username,full_name,avatar_url)')
+          .insert({'post_id': widget.postId, 'content': text, 'author_id': userId})
+          .select('*, author:profiles(id,username,full_name,first_name,avatar_url)')
           .single();
-      setState(() => _comments.add(Comment.fromJson(data)));
-    } catch (_) {}
-    setState(() => _sending = false);
+      if (mounted) setState(() => _comments.add(Comment.fromJson(data)));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur : $e')));
+        _ctrl.text = text; // Restaurer le texte
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
@@ -788,37 +799,19 @@ class _CommentSectionState extends State<_CommentSection> {
             )
           else
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 220),
+              constraints: const BoxConstraints(maxHeight: 300),
               child: ListView.builder(
                 shrinkWrap: true,
                 itemCount: _comments.length,
-                itemBuilder: (_, i) {
-                  final c = _comments[i];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppAvatar(url: c.author?.avatarUrl, initials: c.author?.initials ?? 'U', size: 28),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF2D3139) : const Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text(c.author?.fullName ?? '', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-                              const SizedBox(height: 2),
-                              Text(c.content, style: const TextStyle(fontSize: 13, height: 1.4)),
-                            ]),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                itemBuilder: (_, i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: CommentThread(
+                    comment: _comments[i],
+                    postId: widget.postId,
+                    isDark: isDark,
+                    onCommentAdded: () {},
+                  ),
+                ),
               ),
             ),
           const SizedBox(height: 8),

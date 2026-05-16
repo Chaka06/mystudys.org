@@ -87,12 +87,23 @@ class _ChatScreenState extends State<ChatScreen> {
         column: 'conversation_id',
         value: widget.conversation.id,
       ),
-      callback: (payload) {
-        final newMsg = Message.fromJson(payload.newRecord);
-        if (newMsg.senderId == _myId) return;
-        if (!mounted) return;
-        setState(() => _messages.add(newMsg));
-        _scrollToBottom();
+      callback: (payload) async {
+        // Le payload Realtime ne contient PAS le profil du sender
+        // → on recharge le message complet avec le join profiles
+        final msgId = payload.newRecord['id'] as String?;
+        final senderId = payload.newRecord['sender_id'] as String?;
+        if (msgId == null || senderId == _myId) return;
+        try {
+          final fullData = await _sb
+              .from('messages')
+              .select('*, sender:profiles(id,username,full_name,first_name,avatar_url)')
+              .eq('id', msgId)
+              .single();
+          final newMsg = Message.fromJson(fullData);
+          if (!mounted) return;
+          setState(() => _messages.add(newMsg));
+          _scrollToBottom();
+        } catch (_) {}
       },
     ).subscribe();
   }
@@ -183,20 +194,29 @@ class _ChatScreenState extends State<ChatScreen> {
   void _cancelReply() => setState(() => _replyTo = null);
 
   // ── Vue une fois : marquer comme vue ────────────────────────────────────────
+  bool _markingViewed = false;
+
   Future<void> _markViewed(Message msg) async {
-    await _sb.from('messages').update({'is_viewed': true}).eq('id', msg.id);
-    setState(() {
-      final idx = _messages.indexWhere((m) => m.id == msg.id);
-      if (idx != -1) {
-        _messages[idx] = Message(
-          id: msg.id, conversationId: msg.conversationId, senderId: msg.senderId,
-          content: msg.content, mediaUrl: msg.mediaUrl, isRead: msg.isRead,
-          isDeleted: msg.isDeleted, isViewOnce: msg.isViewOnce, isViewed: true,
-          replyToId: msg.replyToId, replyToContent: msg.replyToContent, replyToSender: msg.replyToSender,
-          createdAt: msg.createdAt, sender: msg.sender,
-        );
-      }
-    });
+    if (_markingViewed) return;
+    _markingViewed = true;
+    try {
+      await _sb.from('messages').update({'is_viewed': true}).eq('id', msg.id);
+      if (!mounted) return;
+      setState(() {
+        final idx = _messages.indexWhere((m) => m.id == msg.id);
+        if (idx != -1) {
+          _messages[idx] = Message(
+            id: msg.id, conversationId: msg.conversationId, senderId: msg.senderId,
+            content: msg.content, mediaUrl: msg.mediaUrl, isRead: msg.isRead,
+            isDeleted: msg.isDeleted, isViewOnce: msg.isViewOnce, isViewed: true,
+            replyToId: msg.replyToId, replyToContent: msg.replyToContent, replyToSender: msg.replyToSender,
+            createdAt: msg.createdAt, sender: msg.sender,
+          );
+        }
+      });
+    } finally {
+      _markingViewed = false;
+    }
   }
 
   // ── Envoi de message ─────────────────────────────────────────────────────────
